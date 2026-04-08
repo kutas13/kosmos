@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
     const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-    let query = supabase.from("musteriler").select("*").order("id", { ascending: true });
+    let query = supabase.from("musteriler").select("*").order("created_at", { ascending: true });
     if (q) {
       const safe = q.replace(/[,%()]/g, "").slice(0, 80);
       if (safe) {
