@@ -31,3 +31,16 @@ export function isValidMusteriId(id: number): boolean {
 export function isUniqueViolation(err: { code?: string; message?: string }) {
   return err.code === "23505" || String(err.message || "").includes("duplicate key");
 }
+
+/** GG.AA.YYYY formatindan yas hesapla. Gecersizse null. */
+export function calcAgeFromDogum(ddmmyyyy: string): number | null {
+  const m = ddmmyyyy.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return null;
+  const birth = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const md = today.getMonth() - birth.getMonth();
+  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}

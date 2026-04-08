@@ -22,6 +22,19 @@ function formatDogumInput(raw: string) {
   return formatted;
 }
 
+/** GG.AA.YYYY formatindan yas hesapla. Gecersizse null doner. */
+function calcAge(ddmmyyyy: string): number | null {
+  const m = ddmmyyyy.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!m) return null;
+  const birth = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 export default function HomePage() {
   const [ad, setAd] = useState("");
   const [soyad, setSoyad] = useState("");
@@ -38,6 +51,7 @@ export default function HomePage() {
   const [showIdBox, setShowIdBox] = useState(false);
   const [newId, setNewId] = useState("—");
   const [submitting, setSubmitting] = useState(false);
+  const isChild = dogum.length === 10 && (calcAge(dogum) ?? 99) < 12;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshList = useCallback(async (q: string) => {
@@ -264,7 +278,11 @@ export default function HomePage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="telefon">Telefon (isteğe bağlı)</label>
+                <label htmlFor="telefon">
+                  Telefon {isChild
+                    ? "(12 yaş altı — veli telefonu kullanılabilir)"
+                    : "(isteğe bağlı)"}
+                </label>
                 <input
                   id="telefon"
                   type="tel"

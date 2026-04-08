@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { corsEmpty, corsJson } from "@/lib/cors";
-import { isUniqueViolation, isValidMusteriId, parseBody } from "@/lib/musteri";
+import { isUniqueViolation, isValidMusteriId, parseBody, calcAgeFromDogum } from "@/lib/musteri";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -60,8 +60,10 @@ export async function PUT(req: Request, ctx: Ctx) {
       );
     }
 
-    // Telefon tekrar kontrolu (bos degilse)
-    if (fields.telefon) {
+    // Telefon tekrar kontrolu: 12 yas alti icin atla (veli telefonu paylasimi)
+    const age = calcAgeFromDogum(fields.dogum_tarihi);
+    const isChild = age !== null && age < 12;
+    if (fields.telefon && !isChild) {
       const { data: phoneDup } = await supabase
         .from("musteriler")
         .select("id,ad,soyad")
