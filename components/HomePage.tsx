@@ -197,6 +197,10 @@ export default function HomePage() {
         <div className="grid">
           <section className="card" id="form-section">
             <h3>Müşteri Kaydı</h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.75rem", lineHeight: 1.45 }}>
+              Kaydettiğinizde size <strong>1–999</strong> arası rastgele ve benzersiz bir müşteri numarası verilir
+              (en fazla 999 kayıt). Aynı anda birden fazla kayıt olsa bile numaralar birbirine karışmaz.
+            </p>
             <form onSubmit={onSubmit}>
               <div className="field">
                 <label htmlFor="ad">Ad</label>
@@ -325,10 +329,7 @@ export default function HomePage() {
       </div>
 
       <footer className="footer">
-        FoxVize © 2026 ·{" "}
-        <a href="https://github.com/kutas13/kosmos" target="_blank" rel="noreferrer">
-          GitHub
-        </a>
+        FoxVize © 2026 Tüm hakları saklıdır · Prod By Yusuf Kutas
       </footer>
     </>
   );
