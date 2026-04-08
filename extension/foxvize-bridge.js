@@ -1,20 +1,23 @@
 /**
- * foxvize.info sayfasında çalışır.
- * Sayfa müşteri kaydettikten sonra CustomEvent ateşler;
- * bu script eklenti storage'ına yazar, popup açıldığında ID hazır olur.
+ * foxvize.info sayfasinda calisir (content script).
+ * Sayfa postMessage ile musteri verisini gonderir;
+ * bu script chrome.storage.local'a yazar, popup acildiginda ID hazir olur.
  */
-window.addEventListener("FOXVIZE_MUSTERI_SAVED", (e) => {
-  const d = e.detail;
+window.addEventListener("message", (e) => {
+  if (e.source !== window) return;
+  if (!e.data || e.data.type !== "FOXVIZE_MUSTERI_SAVED") return;
+
+  const d = e.data.payload;
   if (!d || !d.id) return;
-  const fill = {
-    ad: d.ad || "",
-    soyad: d.soyad || "",
-    tc: d.tc || "",
-    dogum_tarihi: d.dogum_tarihi || "",
-    telefon: d.telefon || "",
-  };
+
   chrome.storage.local.set({
     lastMusteriId: Number(d.id),
-    lastFill: fill,
+    lastFill: {
+      ad: d.ad || "",
+      soyad: d.soyad || "",
+      tc: d.tc || "",
+      dogum_tarihi: d.dogum_tarihi || "",
+      telefon: d.telefon || "",
+    },
   });
 });

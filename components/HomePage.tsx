@@ -144,18 +144,27 @@ export default function HomePage() {
         );
         return;
       }
+      const savedId = String(j.id);
       setStatusKind("ok");
-      setStatusText(isEdit ? `#${j.id} güncellendi.` : "Kaydedildi.");
-      setNewId(String(j.id));
+      setNewId(savedId);
       setShowIdBox(true);
 
-      // Eklentiye otomatik aktar (foxvize-bridge.js dinler)
+      // Panoya kopyala
+      try { await navigator.clipboard.writeText(savedId); } catch { /* */ }
+
+      // Eklentiye otomatik aktar (foxvize-bridge.js content script dinler)
       try {
-        window.dispatchEvent(
-          new CustomEvent("FOXVIZE_MUSTERI_SAVED", { detail: j })
+        window.postMessage(
+          { type: "FOXVIZE_MUSTERI_SAVED", payload: j },
+          "*"
         );
       } catch { /* eklenti yoksa sorun değil */ }
 
+      setStatusText(
+        isEdit
+          ? `#${savedId} güncellendi.`
+          : `Kaydedildi — ID #${savedId} panoya kopyalandı.`
+      );
       clearForm();
       await refreshList(search.trim());
     } catch (err) {

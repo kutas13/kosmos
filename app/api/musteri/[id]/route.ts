@@ -60,6 +60,23 @@ export async function PUT(req: Request, ctx: Ctx) {
       );
     }
 
+    // Telefon tekrar kontrolu (bos degilse)
+    if (fields.telefon) {
+      const { data: phoneDup } = await supabase
+        .from("musteriler")
+        .select("id,ad,soyad")
+        .eq("telefon", fields.telefon)
+        .neq("id", id)
+        .maybeSingle();
+      if (phoneDup) {
+        const p = phoneDup as { id: number; ad: string; soyad: string };
+        return corsJson(
+          { detail: `Bu telefon (${fields.telefon}) zaten #${p.id} numaralı müşteride kayıtlı: ${p.ad} ${p.soyad}` },
+          409
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("musteriler")
       .update(fields)

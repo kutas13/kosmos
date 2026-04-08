@@ -42,6 +42,22 @@ export async function POST(request: NextRequest) {
     }
     const supabase = getSupabaseAdmin();
 
+    // Telefon tekrar kontrolu (bos degilse)
+    if (fields.telefon) {
+      const { data: phoneDup } = await supabase
+        .from("musteriler")
+        .select("id,ad,soyad")
+        .eq("telefon", fields.telefon)
+        .maybeSingle();
+      if (phoneDup) {
+        const p = phoneDup as { id: number; ad: string; soyad: string };
+        return corsJson(
+          { detail: `Bu telefon (${fields.telefon}) zaten #${p.id} numaralı müşteride kayıtlı: ${p.ad} ${p.soyad}` },
+          409
+        );
+      }
+    }
+
     const { data, error } = await supabase.rpc("insert_musteri_random", {
       p_ad: fields.ad,
       p_soyad: fields.soyad,
