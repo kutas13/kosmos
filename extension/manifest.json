@@ -7,7 +7,9 @@
   "host_permissions": [
     "https://basvuru.kosmosvize.com.tr/*",
     "http://127.0.0.1/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "https://foxvize.info/*",
+    "https://*.vercel.app/*"
   ],
   "action": {
     "default_popup": "popup.html",

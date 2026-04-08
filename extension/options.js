@@ -12,7 +12,7 @@ function load() {
       "wizardStep3",
     ],
     (r) => {
-      $("apiBaseUrl").value = r.apiBaseUrl ?? "http://127.0.0.1:8765";
+      $("apiBaseUrl").value = r.apiBaseUrl ?? "http://127.0.0.1:3000";
       $("staticFields").value = JSON.stringify(r.staticFields ?? [], null, 2);
       $("dynamicLabels").value = JSON.stringify(r.dynamicLabels ?? {}, null, 2);
       $("dynamicFieldMap").value = JSON.stringify(r.dynamicFieldMap ?? {}, null, 2);
@@ -30,7 +30,7 @@ function setStatus(text, isErr) {
 }
 
 $("save").addEventListener("click", () => {
-  const apiBaseUrl = $("apiBaseUrl").value.trim().replace(/\/$/, "") || "http://127.0.0.1:8765";
+  const apiBaseUrl = $("apiBaseUrl").value.trim().replace(/\/$/, "") || "http://127.0.0.1:3000";
   let staticFields;
   let dynamicLabels;
   let dynamicFieldMap;

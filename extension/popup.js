@@ -11,7 +11,7 @@ document.getElementById("openOptions").addEventListener("click", (e) => {
 async function getApiBase() {
   const r = await chrome.storage.local.get(["apiBaseUrl"]);
   const b = String(r.apiBaseUrl || "").trim().replace(/\/$/, "");
-  return b || "http://127.0.0.1:8765";
+  return b || "http://127.0.0.1:3000";
 }
 
 function payloadFromForm() {
@@ -67,7 +67,7 @@ btnLoad.addEventListener("click", async () => {
   } catch (e) {
     msgEl.className = "err";
     msgEl.textContent =
-      "Bağlanılamadı. uvicorn çalışıyor mu? Örn: uvicorn app:app --host 127.0.0.1 --port 8765\n" +
+      "Bağlanılamadı. Next.js çalışıyor mu? Örn: cd web && npm run dev\n" +
       String(e);
   } finally {
     btnLoad.disabled = false;
