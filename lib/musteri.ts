@@ -1,3 +1,6 @@
+export const MUSTERI_ID_MIN = 1;
+export const MUSTERI_ID_MAX = 999;
+
 export type Musteri = {
   id: number;
   ad: string;
@@ -19,6 +22,10 @@ export function parseBody(body: unknown): Omit<Musteri, "id"> | null {
     return null;
   }
   return { ad, soyad, tc, dogum_tarihi, telefon };
+}
+
+export function isValidMusteriId(id: number): boolean {
+  return Number.isInteger(id) && id >= MUSTERI_ID_MIN && id <= MUSTERI_ID_MAX;
 }
 
 export function isUniqueViolation(err: { code?: string; message?: string }) {

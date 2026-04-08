@@ -148,6 +148,14 @@ export default function HomePage() {
       setStatusText(isEdit ? `#${j.id} güncellendi.` : "Kaydedildi.");
       setNewId(String(j.id));
       setShowIdBox(true);
+
+      // Eklentiye otomatik aktar (foxvize-bridge.js dinler)
+      try {
+        window.dispatchEvent(
+          new CustomEvent("FOXVIZE_MUSTERI_SAVED", { detail: j })
+        );
+      } catch { /* eklenti yoksa sorun değil */ }
+
       clearForm();
       await refreshList(search.trim());
     } catch (err) {
@@ -270,6 +278,7 @@ export default function HomePage() {
               <div className="idBox">
                 <div className="label">Müşteri ID</div>
                 <strong>{newId}</strong>
+                <div className="id-hint">Eklentiye otomatik gönderildi</div>
               </div>
             )}
             {statusText && (

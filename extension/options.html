@@ -2,82 +2,175 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <title>Kosmos doldurucu — seçenekler</title>
+  <title>FoxVize — Eklenti Ayarları</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px; line-height: 1.45; }
-    h1 { font-size: 18px; }
-    h2 { font-size: 14px; margin-top: 24px; }
-    textarea {
-      width: 100%;
-      min-height: 140px;
-      font-family: ui-monospace, monospace;
-      font-size: 12px;
-      padding: 8px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    :root {
+      --bg: #060a10;
+      --surface: rgba(15, 23, 36, 0.85);
+      --card: rgba(22, 33, 52, 0.65);
+      --border: rgba(56, 78, 112, 0.35);
+      --border-focus: rgba(99, 155, 255, 0.5);
+      --text: #eaf0f8;
+      --muted: #7a8ba4;
+      --accent: #639bff;
+      --accent2: #a78bfa;
+      --ok: #4ade80;
+      --err: #ff6b6b;
     }
-    button { margin-top: 8px; padding: 8px 16px; cursor: pointer; }
-    .ok { color: #137333; }
-    .err { color: #c5221f; }
-    code { background: #eee; padding: 1px 4px; border-radius: 3px; }
-    p.hint { font-size: 13px; color: #555; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      font-size: 13px;
+      line-height: 1.5;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,155,255,0.06), transparent);
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.2rem;
+      margin-top: 1rem;
+    }
+    h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    h2::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 12px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+    }
+    p.hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; line-height: 1.45; }
+    code {
+      background: rgba(99, 155, 255, 0.1);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(6, 10, 16, 0.6);
+      color: var(--text);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      transition: all 0.2s;
+      margin-bottom: 0.5rem;
+    }
+    textarea { min-height: 100px; resize: vertical; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(99, 155, 255, 0.1);
+    }
+    button#save {
+      margin-top: 1rem;
+      padding: 0.65rem 2rem;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 2px 12px rgba(99,155,255,0.2);
+    }
+    button#save:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,155,255,0.3); }
+    #status { margin-top: 0.6rem; font-size: 0.8rem; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
   </style>
 </head>
 <body>
-  <h1>Kosmos başvuru doldurucu — seçenekler</h1>
-  <p class="hint">
-    <strong>API kök adresi</strong> (müşteri ID ile yükleme): varsayılan <code>https://foxvize.info</code> — sonda <code>/</code> olmasın.
-    Önizleme için Vercel adresini de yazabilirsiniz.
-  </p>
-  <h2>apiBaseUrl</h2>
-  <input type="text" id="apiBaseUrl" spellcheck="false" style="width:100%;padding:8px;font-size:13px;box-sizing:border-box" placeholder="https://foxvize.info" />
+  <h1>FoxVize Eklenti Ayarlari</h1>
 
-  <p class="hint">
-    <strong>Sabit alanlar</strong> her doldurmada aynı kalır. JSON dizisi: <code>type</code> = <code>fill</code> veya
-    <code>select</code>, <code>value</code> = yazılacak değer. Alanı bulmak için <code>name</code> (tercih, örn.
-    BootstrapVue <code>name=&quot;…&quot;</code>) veya <code>label</code> (etiketten parça) kullanın.
-  </p>
-  <h2>staticFields (JSON)</h2>
-  <textarea id="staticFields" spellcheck="false"></textarea>
+  <div class="card">
+    <h2>API Adresi</h2>
+    <p class="hint">
+      Varsayilan <code>https://foxvize.info</code> — sonda <code>/</code> olmasin.
+      Test icin Vercel preview adresini yazabilirsiniz.
+    </p>
+    <input type="text" id="apiBaseUrl" spellcheck="false" placeholder="https://foxvize.info" />
+  </div>
 
-  <p class="hint">
-    <strong>İsteğe bağlı:</strong> Dinamik alanlar için etiket parçaları (sayfadaki yazıyla uyuşmalı).
-  </p>
-  <h2>dynamicLabels (JSON nesnesi)</h2>
-  <textarea id="dynamicLabels" spellcheck="false"></textarea>
+  <div class="card">
+    <h2>Sabit Alanlar (staticFields)</h2>
+    <p class="hint">
+      Her doldurmada ayni kalan alanlar. JSON dizisi: <code>type</code> = <code>fill</code> veya
+      <code>select</code>, <code>value</code> = yazilacak deger.
+    </p>
+    <textarea id="staticFields" spellcheck="false"></textarea>
+  </div>
 
-  <p class="hint">
-    <strong>Gelişmiş:</strong> Alan başına özel strateji. Örnek: <code>ad</code> için CSS seçici.
-  </p>
-  <h2>dynamicFieldMap (JSON)</h2>
-  <textarea id="dynamicFieldMap" spellcheck="false" placeholder='{"ad":{"strategy":"css","selector":"#name"}}'></textarea>
+  <div class="card">
+    <h2>Dinamik Etiketler (dynamicLabels)</h2>
+    <p class="hint">Dinamik alanlar icin etiket parcalari (sayfadaki yaziyla uyusmali).</p>
+    <textarea id="dynamicLabels" spellcheck="false"></textarea>
+  </div>
 
-  <p class="hint">
-    <strong>Sayfa 3 (adres — görsel 3):</strong> <code>applicantCountryId</code> (Türkiye=685),
-    <code>applicantCityId</code> (İstanbul=2), <code>street</code>, <code>eMail</code>,
-    <code>addressClickHayir</code> (ikamet sorusu Hayır). İsteğe bağlı: <code>postalCode</code>,
-    <code>applicantCountrySelectName</code> (ülke select’in tam <code>name</code>’i).
-  </p>
-  <h2>wizardStep1Extra (JSON nesnesi)</h2>
-  <textarea id="wizardStep1Extra" spellcheck="false" placeholder='{"applicantCityId":"2","street":"MENEKSE"}'></textarea>
+  <div class="card">
+    <h2>Dinamik Alan Haritasi (dynamicFieldMap)</h2>
+    <p class="hint">Alan basina ozel strateji. Ornek: <code>ad</code> icin CSS secici.</p>
+    <textarea id="dynamicFieldMap" spellcheck="false" placeholder='{"ad":{"strategy":"css","selector":"#name"}}'></textarea>
+  </div>
 
-  <p class="hint">
-    <strong>2. adım (sihirbaz)</strong> varsayılanları üzerine yazar. Örn. <code>passportIssueDate</code>,
-    <code>birthPlace</code>, <code>passportNo</code> (boş bırakırsanız her seferinde rastgele <code>U########</code>).
-  </p>
-  <h2>wizardStep2 (JSON nesnesi)</h2>
-  <textarea id="wizardStep2" spellcheck="false" placeholder='{"birthPlace":"ISTANBUL"}'></textarea>
+  <div class="card">
+    <h2>1. Adim Ekstra (wizardStep1Extra)</h2>
+    <p class="hint">
+      Sayfa 3 (adres): <code>applicantCountryId</code> (Turkiye=685),
+      <code>applicantCityId</code> (Istanbul=2), <code>street</code>, <code>eMail</code>, vb.
+    </p>
+    <textarea id="wizardStep1Extra" spellcheck="false" placeholder='{"applicantCityId":"2","street":"MENEKSE"}'></textarea>
+  </div>
 
-  <p class="hint">
-    <strong>Sihirbaz:</strong> 4. slayt meslek (<code>jobId</code>), 5. slayt seyahat + parmak izi.
-    <code>jobId</code>: Esnaf = <code>"381"</code>. <code>visaEntryTypeId</code>: Çoklu Giriş = <code>"58"</code> (Tek 56, Çift 57). Vize tarihleri:
-    <code>visaDateAnchor</code> (referans gün), <code>visaBaseEntryDate</code> / <code>visaBaseReturnDate</code>
-    (o günkü giriş–çıkış, YYYY-MM-DD veya GG.AA.YYYY). Her geçen takvim günü iki tarih de +1 kayar.
-    Sabitlemek için <code>"visaRolling": false</code> ve <code>visaEntryDate</code>, <code>visaReturnDate</code> verin.
-    7. slayt masraflar: <code>accommodationTravelCosts</code> (varsayılan <code>gecimMasraflariHayir</code>),
-    <code>expensePaymentCashValue</code> (<code>Nakit</code>).
-    8. slayt KVKK: metin sona kaydırılır; <code>kvkkLocation</code> (ISTANBUL), <code>kvkkLocationDate</code> (boş = bugün).
-  </p>
-  <h2>wizardStep3 (JSON nesnesi)</h2>
-  <textarea id="wizardStep3" spellcheck="false"></textarea>
+  <div class="card">
+    <h2>2. Adim (wizardStep2)</h2>
+    <p class="hint">
+      Pasaport/kisisel: <code>passportIssueDate</code>, <code>birthPlace</code>,
+      <code>passportNo</code> (bos = rastgele <code>U########</code>).
+    </p>
+    <textarea id="wizardStep2" spellcheck="false" placeholder='{"birthPlace":"ISTANBUL"}'></textarea>
+  </div>
+
+  <div class="card">
+    <h2>3+ Adimlar (wizardStep3)</h2>
+    <p class="hint">
+      Meslek (<code>jobId</code>), seyahat, masraflar, KVKK ayarlari.
+      <code>jobId</code>: Esnaf=381. <code>visaEntryTypeId</code>: Coklu=58.
+    </p>
+    <textarea id="wizardStep3" spellcheck="false"></textarea>
+  </div>
 
   <button type="button" id="save">Kaydet</button>
   <p id="status"></p>

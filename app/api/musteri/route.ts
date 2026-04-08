@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { corsEmpty, corsJson } from "@/lib/cors";
-import { isUniqueViolation, parseBody, type Musteri } from "@/lib/musteri";
+import { parseBody, type Musteri } from "@/lib/musteri";
 import { NextRequest } from "next/server";
 
 export async function OPTIONS() {
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/musteri */
+/** POST /api/musteri — ID: 1-999 arası rastgele, DB fonksiyonu ile eşzamanlı güvenli */
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json().catch(() => null);
@@ -41,13 +41,19 @@ export async function POST(request: NextRequest) {
       return corsJson({ detail: "Geçersiz veya eksik alanlar" }, 422);
     }
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("musteriler")
-      .insert(fields)
-      .select()
-      .single();
+
+    const { data, error } = await supabase.rpc("insert_musteri_random", {
+      p_ad: fields.ad,
+      p_soyad: fields.soyad,
+      p_tc: fields.tc,
+      p_dogum_tarihi: fields.dogum_tarihi,
+      p_telefon: fields.telefon,
+    });
+
     if (error) {
-      if (isUniqueViolation(error)) {
+      const code = error.code;
+      const msg = String(error.message || "");
+      if (code === "23505" || msg.includes("duplicate_tc")) {
         const { data: existing } = await supabase
           .from("musteriler")
           .select("id,ad,soyad")
@@ -59,9 +65,32 @@ export async function POST(request: NextRequest) {
           : "Bu TC zaten kayıtlı";
         return corsJson({ detail }, 409);
       }
+      if (code === "P0001" || msg.includes("capacity_full") || msg.includes("999 müşteri")) {
+        return corsJson(
+          { detail: "En fazla 999 müşteri kaydı oluşturulabilir." },
+          503
+        );
+      }
+      if (msg.includes("id_allocate_failed") || msg.includes("Uygun ID")) {
+        return corsJson({ detail: "Şu an ID atanamadı, birkaç saniye sonra tekrar deneyin." }, 503);
+      }
+      if (msg.includes("insert_musteri_random") || msg.includes("function") || code === "42883") {
+        return corsJson(
+          {
+            detail:
+              "Sunucu henüz güncellenmedi. Supabase SQL Editor'da supabase/migrations/002_random_id_1_999.sql dosyasını çalıştırın.",
+          },
+          503
+        );
+      }
       return corsJson({ detail: error.message }, 500);
     }
-    return corsJson(data, 200);
+
+    const row = (Array.isArray(data) ? data[0] : data) as Musteri | undefined;
+    if (!row?.id) {
+      return corsJson({ detail: "Kayıt oluşturulamadı" }, 500);
+    }
+    return corsJson(row, 200);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Sunucu hatası";
     return corsJson({ detail: msg }, 500);

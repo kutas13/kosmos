@@ -3,72 +3,98 @@
 <head>
   <meta charset="utf-8" />
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --border: #2d3a4d;
-      --text: #e7ecf3;
-      --muted: #8b9cb3;
-      --accent: #3d8bfd;
-      --accent-hover: #5a9ffd;
-      --err: #f85149;
-      --ok: #3fb950;
+      --bg: #060a10;
+      --surface: rgba(15, 23, 36, 0.85);
+      --card: rgba(22, 33, 52, 0.7);
+      --border: rgba(56, 78, 112, 0.35);
+      --border-focus: rgba(99, 155, 255, 0.5);
+      --text: #eaf0f8;
+      --muted: #7a8ba4;
+      --accent: #639bff;
+      --accent2: #a78bfa;
+      --err: #ff6b6b;
+      --ok: #4ade80;
     }
-    * { box-sizing: border-box; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 360px;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      width: 380px;
+      font-family: 'Inter', system-ui, sans-serif;
       font-size: 13px;
       background: var(--bg);
       color: var(--text);
-      padding: 0;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(99,155,255,0.06), transparent);
     }
 
-    /* Header */
-    .header {
-      background: var(--surface);
+    .nav {
+      background: rgba(6, 10, 16, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
+      padding: 10px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .header .title {
-      font-size: 14px;
+    .nav .brand {
+      font-size: 13px;
       font-weight: 700;
-      color: var(--accent);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    .header .title span { color: var(--text); font-weight: 400; }
-    .header .settings-link {
+    .nav .brand span {
+      -webkit-text-fill-color: var(--muted);
+      font-weight: 400;
+      font-size: 11px;
+    }
+    .nav .settings {
       font-size: 11px;
       color: var(--muted);
       text-decoration: none;
       cursor: pointer;
       transition: color .2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    .header .settings-link:hover { color: var(--text); }
+    .nav .settings:hover { color: var(--text); }
+    .nav .settings svg { width: 14px; height: 14px; }
 
-    /* Content */
-    .content { padding: 14px 16px; }
+    .content { padding: 12px 14px 14px; }
 
-    /* Section */
-    .section {
-      background: var(--surface);
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 14px;
       padding: 12px;
       margin-bottom: 10px;
     }
-    .section-title {
-      font-size: 10px;
+    .card-title {
+      font-size: 9px;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       color: var(--muted);
       font-weight: 600;
       margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 12px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      border-radius: 2px;
     }
 
-    /* Load row */
     .load-row {
       display: flex;
       gap: 6px;
@@ -79,111 +105,139 @@
       min-width: 0;
       padding: 7px 10px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
+      border-radius: 10px;
+      background: rgba(6, 10, 16, 0.6);
       color: var(--text);
       font-size: 13px;
+      font-family: inherit;
+      transition: all 0.2s;
     }
-    .load-row input:focus { outline: none; border-color: var(--accent); }
+    .load-row input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99,155,255,0.1); }
     .load-row button {
-      padding: 7px 14px;
+      padding: 7px 16px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
+      border-radius: 10px;
+      background: var(--card);
       color: var(--text);
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
       white-space: nowrap;
-      transition: all .15s;
+      transition: all .2s;
     }
-    .load-row button:hover { background: var(--border); }
+    .load-row button:hover { background: rgba(99,155,255,0.1); border-color: var(--accent); }
 
-    /* Fields */
+    .desc {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      line-height: 1.4;
+    }
+
     .field { margin-bottom: 6px; }
     .field label {
       display: block;
-      font-size: 10px;
+      font-size: 9.5px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
       color: var(--muted);
-      margin-bottom: 2px;
+      margin-bottom: 3px;
+      font-weight: 500;
     }
     .field input {
       width: 100%;
       padding: 7px 10px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
+      border-radius: 10px;
+      background: rgba(6, 10, 16, 0.6);
       color: var(--text);
       font-size: 13px;
+      font-family: inherit;
+      transition: all 0.2s;
     }
-    .field input:focus { outline: none; border-color: var(--accent); }
+    .field input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(99,155,255,0.1); }
+    .field input::placeholder { color: rgba(122, 139, 164, 0.45); }
 
-    /* Buttons */
     .btn-primary {
       width: 100%;
       margin-top: 8px;
       padding: 9px;
       border: none;
-      border-radius: 8px;
-      background: var(--accent);
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
       color: #fff;
       font-weight: 600;
       font-size: 13px;
+      font-family: inherit;
       cursor: pointer;
-      transition: background .2s;
+      transition: all .25s;
+      box-shadow: 0 2px 12px rgba(99,155,255,0.2);
     }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,155,255,0.3); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
     .btn-ghost {
       width: 100%;
       margin-top: 6px;
       padding: 7px;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       background: transparent;
       font-size: 12px;
+      font-family: inherit;
       cursor: pointer;
       color: var(--muted);
-      transition: all .15s;
+      transition: all .2s;
     }
-    .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
 
-    /* Message */
     #msg {
       margin-top: 8px;
       font-size: 12px;
-      color: var(--muted);
-      min-height: 1.8em;
+      min-height: 1.5em;
       white-space: pre-wrap;
       line-height: 1.4;
+      padding: 0 2px;
     }
+    #msg:empty { display: none; }
     #msg.err { color: var(--err); }
     #msg.ok { color: var(--ok); }
+
+    .footer-line {
+      text-align: center;
+      font-size: 9px;
+      color: rgba(122, 139, 164, 0.4);
+      padding: 0 0 8px;
+      letter-spacing: 0.03em;
+    }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <div class="title">FoxVize <span>· Başvuru</span></div>
-    <a class="settings-link" id="openOptions">Ayarlar</a>
+  <div class="nav">
+    <div class="brand">FoxVize <span>· Başvuru</span></div>
+    <a class="settings" id="openOptions">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06c.5.5 1.14.7 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.5.5-.7 1.14-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      Ayarlar
+    </a>
   </div>
 
   <div class="content">
 
-    <div class="section">
-      <div class="section-title">Müşteri Yükle (foxvize.info)</div>
-      <p style="font-size:11px;color:var(--muted);margin:0 0 6px;line-height:1.35">Kayıtlı müşteri numarasını yazın; veriler siteden çekilir. API adresi Ayarlar’dan değişir.</p>
+    <div class="card">
+      <div class="card-title">Müşteri Yükle</div>
+      <p class="desc">Sitede kaydettiğiniz müşteri ID'sini yazın veya kayıt sonrası otomatik gelir.</p>
       <div class="load-row">
-        <input id="musteri_id" name="musteri_id" type="number" min="1" placeholder="Örn. 1" />
+        <input id="musteri_id" name="musteri_id" type="number" min="1" max="999" placeholder="1–999" />
         <button type="button" id="btnLoad">Yükle</button>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Müşteri Bilgileri</div>
+    <div class="card">
+      <div class="card-title">Müşteri Bilgileri</div>
       <form id="f">
         <div class="field">
           <label for="ad">Ad</label>
@@ -203,15 +257,17 @@
         </div>
         <div class="field">
           <label for="telefon">Telefon</label>
-          <input id="telefon" name="telefon" type="tel" autocomplete="tel" required placeholder="05xx..." />
+          <input id="telefon" name="telefon" type="tel" autocomplete="tel" placeholder="05xx..." />
         </div>
-        <button type="submit" class="btn-primary" id="btnWizard">Sihirbazı Başlat (8 Adım)</button>
+        <button type="submit" class="btn-primary" id="btnWizard">Sihirbazi Baslat (8 Adim)</button>
       </form>
-      <button type="button" class="btn-ghost" id="btnStep1">Yalnızca 1. Sayfayı Doldur</button>
+      <button type="button" class="btn-ghost" id="btnStep1">Yalnizca 1. Sayfayi Doldur</button>
     </div>
 
     <div id="msg"></div>
   </div>
+
+  <div class="footer-line">FoxVize v1.3</div>
 
   <script src="defaults.js"></script>
   <script src="popup.js"></script>

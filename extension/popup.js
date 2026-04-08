@@ -47,6 +47,12 @@ btnLoad.addEventListener("click", async () => {
     msgEl.textContent = "Müşteri ID girin.";
     return;
   }
+  const idNum = Number(idRaw);
+  if (!Number.isInteger(idNum) || idNum < 1 || idNum > 999) {
+    msgEl.className = "err";
+    msgEl.textContent = "Müşteri ID 1 ile 999 arasında olmalı.";
+    return;
+  }
   btnLoad.disabled = true;
   try {
     const base = await getApiBase();
