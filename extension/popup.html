@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --accent-hover: #5a9ffd;
+      --err: #f85149;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      width: 360px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      padding: 0;
+    }
+
+    /* Header */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .header .title span { color: var(--text); font-weight: 400; }
+    .header .settings-link {
+      font-size: 11px;
+      color: var(--muted);
+      text-decoration: none;
+      cursor: pointer;
+      transition: color .2s;
+    }
+    .header .settings-link:hover { color: var(--text); }
+
+    /* Content */
+    .content { padding: 14px 16px; }
+
+    /* Section */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    /* Load row */
+    .load-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .load-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .load-row input:focus { outline: none; border-color: var(--accent); }
+    .load-row button {
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .load-row button:hover { background: var(--border); }
+
+    /* Fields */
+    .field { margin-bottom: 6px; }
+    .field label {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .field input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      margin-top: 8px;
+      padding: 9px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-ghost {
+      width: 100%;
+      margin-top: 6px;
+      padding: 7px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all .15s;
+    }
+    .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+    /* Message */
+    #msg {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 1.8em;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+    #msg.err { color: var(--err); }
+    #msg.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title">FoxVize <span>· Başvuru</span></div>
+    <a class="settings-link" id="openOptions">Ayarlar</a>
+  </div>
+
+  <div class="content">
+
+    <div class="section">
+      <div class="section-title">Müşteri Yükle</div>
+      <div class="load-row">
+        <input id="musteri_id" name="musteri_id" type="number" min="1" placeholder="Müşteri ID" />
+        <button type="button" id="btnLoad">Yükle</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Müşteri Bilgileri</div>
+      <form id="f">
+        <div class="field">
+          <label for="ad">Ad</label>
+          <input id="ad" name="ad" autocomplete="given-name" required />
+        </div>
+        <div class="field">
+          <label for="soyad">Soyad</label>
+          <input id="soyad" name="soyad" autocomplete="family-name" required />
+        </div>
+        <div class="field">
+          <label for="tc">T.C. Kimlik</label>
+          <input id="tc" name="tc" inputmode="numeric" maxlength="11" pattern="\d{11}" required />
+        </div>
+        <div class="field">
+          <label for="dogum_tarihi">Doğum Tarihi</label>
+          <input id="dogum_tarihi" name="dogum_tarihi" placeholder="GG.AA.YYYY" required />
+        </div>
+        <div class="field">
+          <label for="telefon">Telefon</label>
+          <input id="telefon" name="telefon" type="tel" autocomplete="tel" required placeholder="05xx..." />
+        </div>
+        <button type="submit" class="btn-primary" id="btnWizard">Sihirbazı Başlat (8 Adım)</button>
+      </form>
+      <button type="button" class="btn-ghost" id="btnStep1">Yalnızca 1. Sayfayı Doldur</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

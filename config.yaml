@@ -1,0 +1,43 @@
+# Kosmos başvuru formu — seçicileri kendi tarayıcında F12 ile kontrol edip güncelleyin.
+# İpucu: playwright codegen https://basvuru.kosmosvize.com.tr/registerform
+
+form_url: "https://basvuru.kosmosvize.com.tr/registerform"
+
+browser:
+  headless: false
+  slow_mo_ms: 80
+  # Doldurma bitince tarayıcıyı kaç saniye açık tut (inceleyip Gönder’e basmanız için)
+  keep_open_sec: 300
+
+# Dinamik alanlar: her başvuruda sizden gelen bilgiler buraya yazılır.
+# strategy: label  → sayfadaki <label> metni (içerik kısmi eşleşir)
+# strategy: placeholder
+# strategy: css    → selector: "#id" veya "input[name=...]"
+dynamic:
+  ad:
+    strategy: label
+    text: "Ad"
+  soyad:
+    strategy: label
+    text: "Soyad"
+  tc:
+    strategy: label
+    text: "T.C"
+  dogum_tarihi:
+    strategy: label
+    text: "Doğum"
+  telefon:
+    strategy: label
+    text: "Telefon"
+
+# Her seferinde aynı kalacak alanlar (sırayla doldurulur).
+# type: fill | select (select_option)
+static_fields:
+  # Örnek — gerçek etiketleri sitenizden kopyalayın:
+  # - type: fill
+  #   label: "E-posta"
+  #   value: "sabit@ornek.com"
+  # - type: select
+  #   label: "Şehir"
+  #   value: "İstanbul"
+  []

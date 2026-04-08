@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FoxVize — Müşteri Yönetimi</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --surface: #141b27;
+      --card: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --accent-hover: #5a9ffd;
+      --err: #f85149;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .nav .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.03em;
+    }
+    .nav .brand span { color: var(--text); font-weight: 400; }
+    .nav-links { display: flex; gap: 1.25rem; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem; }
+
+    /* ── HERO / DOWNLOAD ── */
+    .hero {
+      background: linear-gradient(135deg, #1a2332 0%, #0f1c2e 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .hero-text h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .hero-text p { color: var(--muted); font-size: 0.9rem; line-height: 1.5; max-width: 440px; }
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+    .btn-download:hover { background: var(--accent-hover); }
+    .btn-download svg { width: 18px; height: 18px; fill: currentColor; }
+
+    /* ── GRID ── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    /* ── FORM ── */
+    .field { margin-bottom: 0.75rem; }
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+    }
+    .field input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      transition: border-color .2s;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(61,139,253,.2); }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-cancel {
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.55rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: none;
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+
+    #status {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      min-height: 1.4rem;
+      padding: 0;
+      border-radius: 6px;
+    }
+    #status.err { color: var(--err); }
+    #status.ok { color: var(--ok); }
+    #status.warn { color: var(--warn); }
+
+    #idBox {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    #idBox .label { font-size: 0.75rem; color: var(--muted); }
+    #idBox strong { font-size: 1.6rem; letter-spacing: 0.05em; color: var(--accent); }
+
+    /* ── SEARCH + LIST ── */
+    .search-wrap { margin-bottom: 0.75rem; }
+    .search-wrap input {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      padding-left: 2rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.85rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%238b9cb3' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 0.6rem center;
+    }
+    .search-wrap input:focus { outline: none; border-color: var(--accent); }
+
+    .list-container { max-height: 400px; overflow-y: auto; }
+    .list { padding: 0; list-style: none; }
+    .list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      gap: 0.5rem;
+    }
+    .list li:last-child { border-bottom: none; }
+    .list li .info { flex: 1; min-width: 0; }
+    .list li .info .name { color: var(--text); font-weight: 500; }
+    .list li .info .meta { color: var(--muted); font-size: 0.72rem; }
+    .list .actions { display: flex; gap: 0.3rem; flex-shrink: 0; }
+
+    .act-btn {
+      background: none;
+      border-radius: 6px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .act-edit { border: 1px solid var(--accent); color: var(--accent); }
+    .act-edit:hover { background: var(--accent); color: #fff; }
+    .act-del { border: 1px solid var(--err); color: var(--err); }
+    .act-del:hover { background: var(--err); color: #fff; }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem 0;
+      font-size: 0.85rem;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="brand">FoxVize <span>· Müşteri Yönetimi</span></div>
+    <div class="nav-links">
+      <a href="#form-section">Kayıt</a>
+      <a href="#list-section">Müşteriler</a>
+      <a href="#download-section">Eklenti</a>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <!-- HERO — EKLENTI INDIRME -->
+    <section class="hero" id="download-section">
+      <div class="hero-text">
+        <h2>Chrome Eklentisini İndirin</h2>
+        <p>Kosmos başvuru formlarını otomatik dolduran Chrome eklentisini indirin. Müşteri bilgilerini buradan kaydedin, eklentide ID'yi girerek formu tek tıkla doldurun.</p>
+      </div>
+      <a class="btn-download" href="https://github.com/kutas13/kosmos/archive/refs/heads/main.zip" target="_blank">
+        <svg viewBox="0 0 16 16"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+        İndir (.zip)
+      </a>
+    </section>
+
+    <div class="grid">
+
+      <!-- SOL — FORM -->
+      <section class="card" id="form-section">
+        <h3>Müşteri Kaydı</h3>
+        <form id="f">
+          <div class="field">
+            <label for="ad">Ad</label>
+            <input id="ad" name="ad" required autocomplete="given-name" />
+          </div>
+          <div class="field">
+            <label for="soyad">Soyad</label>
+            <input id="soyad" name="soyad" required autocomplete="family-name" />
+          </div>
+          <div class="field">
+            <label for="tc">T.C. Kimlik No (11 hane)</label>
+            <input id="tc" name="tc" required pattern="\d{11}" inputmode="numeric" maxlength="11" />
+          </div>
+          <div class="field">
+            <label for="dogum_tarihi">Doğum Tarihi</label>
+            <input id="dogum_tarihi" name="dogum_tarihi" required placeholder="GG.AA.YYYY" maxlength="10" inputmode="numeric" />
+          </div>
+          <div class="field">
+            <label for="telefon">Telefon (isteğe bağlı)</label>
+            <input id="telefon" name="telefon" type="tel" autocomplete="tel" placeholder="05xx..." />
+          </div>
+          <button type="submit" class="btn-submit" id="btn">Kaydet ve ID Al</button>
+          <button type="button" class="btn-cancel" id="cancelBtn" style="display:none" onclick="cancelEdit()">Düzenlemeyi İptal Et</button>
+        </form>
+        <div id="idBox">
+          <div class="label">Müşteri ID</div>
+          <strong id="newId">—</strong>
+        </div>
+        <div id="status"></div>
+      </section>
+
+      <!-- SAĞ — LİSTE -->
+      <section class="card" id="list-section">
+        <h3>Kayıtlı Müşteriler</h3>
+        <div class="search-wrap">
+          <input id="searchInput" type="text" placeholder="İsim veya TC ile ara..." />
+        </div>
+        <div class="list-container">
+          <ul class="list" id="recent"></ul>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="footer">
+    FoxVize &copy; 2026 &middot; <a href="https://github.com/kutas13/kosmos" target="_blank">GitHub</a>
+  </footer>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("btn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    const idBox = document.getElementById("idBox");
+    const newIdEl = document.getElementById("newId");
+    const recentEl = document.getElementById("recent");
+    const form = document.getElementById("f");
+    const searchInput = document.getElementById("searchInput");
+
+    let editingId = null;
+    let allRows = [];
+    let searchTimer = null;
+
+    /* ── Tarih otomatik nokta ── */
+    const dogumInput = document.getElementById("dogum_tarihi");
+    dogumInput.addEventListener("input", function (e) {
+      let v = this.value.replace(/[^\d]/g, "");
+      if (v.length > 8) v = v.slice(0, 8);
+      let formatted = "";
+      for (let i = 0; i < v.length; i++) {
+        if (i === 2 || i === 4) formatted += ".";
+        formatted += v[i];
+      }
+      this.value = formatted;
+    });
+
+    /* ── Arama ── */
+    searchInput.addEventListener("input", function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => refreshList(this.value.trim()), 300);
+    });
+
+    /* ── Form temizle ── */
+    function clearForm() {
+      form.reset();
+      editingId = null;
+      btn.textContent = "Kaydet ve ID Al";
+      cancelBtn.style.display = "none";
+    }
+
+    function cancelEdit() {
+      clearForm();
+      statusEl.textContent = "";
+      statusEl.className = "";
+    }
+
+    /* ── Düzenle ── */
+    function editMusteri(id) {
+      const m = allRows.find((r) => r.id === id);
+      if (!m) return;
+      document.getElementById("ad").value = m.ad;
+      document.getElementById("soyad").value = m.soyad;
+      document.getElementById("tc").value = m.tc;
+      document.getElementById("dogum_tarihi").value = m.dogum_tarihi;
+      document.getElementById("telefon").value = m.telefon || "";
+      editingId = id;
+      btn.textContent = "#" + id + " Güncelle";
+      cancelBtn.style.display = "block";
+      statusEl.textContent = "#" + id + " düzenleniyor\u2026";
+      statusEl.className = "warn";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    /* ── Sil ── */
+    async function deleteMusteri(id) {
+      if (!confirm("#" + id + " numaralı müşteriyi silmek istediğinize emin misiniz?")) return;
+      try {
+        const r = await fetch("/api/musteri/" + id, { method: "DELETE" });
+        if (!r.ok) { alert("Silinemedi"); return; }
+        if (editingId === id) clearForm();
+        refreshList(searchInput.value.trim());
+      } catch (err) { alert("Hata: " + err); }
+    }
+
+    /* ── Liste ── */
+    function renderRows(rows) {
+      if (!rows.length) {
+        recentEl.innerHTML = '<li class="empty-state">Kayıt bulunamadı</li>';
+        return;
+      }
+      recentEl.innerHTML = rows.map((m) =>
+        '<li>' +
+          '<div class="info">' +
+            '<div class="name">#' + m.id + ' — ' + m.ad + ' ' + m.soyad + '</div>' +
+            '<div class="meta">TC ' + m.tc + (m.telefon ? ' · ' + m.telefon : '') + '</div>' +
+          '</div>' +
+          '<div class="actions">' +
+            '<button class="act-btn act-edit" onclick="editMusteri(' + m.id + ')">Düzenle</button>' +
+            '<button class="act-btn act-del" onclick="deleteMusteri(' + m.id + ')">Sil</button>' +
+          '</div>' +
+        '</li>'
+      ).join("");
+    }
+
+    async function refreshList(q) {
+      try {
+        const qs = q ? "?q=" + encodeURIComponent(q) : "";
+        const r = await fetch("/api/musteri" + qs);
+        const j = await r.json();
+        allRows = j.musteriler || [];
+        const display = allRows.slice().reverse();
+        renderRows(display);
+      } catch {
+        recentEl.innerHTML = '<li class="empty-state">Liste yüklenemedi</li>';
+      }
+    }
+
+    /* ── Kaydet / Güncelle ── */
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      statusEl.textContent = "";
+      statusEl.className = "";
+      btn.disabled = true;
+      const body = {
+        ad: document.getElementById("ad").value.trim(),
+        soyad: document.getElementById("soyad").value.trim(),
+        tc: document.getElementById("tc").value.trim(),
+        dogum_tarihi: document.getElementById("dogum_tarihi").value.trim(),
+        telefon: document.getElementById("telefon").value.trim(),
+      };
+      try {
+        const isEdit = editingId !== null;
+        const url = isEdit ? "/api/musteri/" + editingId : "/api/musteri";
+        const method = isEdit ? "PUT" : "POST";
+        const r = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          statusEl.className = r.status === 409 ? "warn" : "err";
+          const d = j.detail;
+          statusEl.textContent = Array.isArray(d)
+            ? d.map((e) => e.msg || JSON.stringify(e)).join(" · ")
+            : (d || r.statusText || "Hata");
+          return;
+        }
+        statusEl.className = "ok";
+        statusEl.textContent = isEdit ? "#" + j.id + " güncellendi." : "Kaydedildi.";
+        newIdEl.textContent = String(j.id);
+        idBox.style.display = "block";
+        clearForm();
+        refreshList(searchInput.value.trim());
+      } catch (err) {
+        statusEl.className = "err";
+        statusEl.textContent = String(err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    refreshList("");
+  </script>
+</body>
+</html>

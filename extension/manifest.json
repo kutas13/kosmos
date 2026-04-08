@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Kosmos başvuru doldurucu",
+  "version": "1.2.0",
+  "description": "Kosmos sihirbazında 2 adım doldurur; localhost müşteri API ile ID'den veri çeker.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://basvuru.kosmosvize.com.tr/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Kosmos doldur"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://basvuru.kosmosvize.com.tr/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
