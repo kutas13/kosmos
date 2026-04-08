@@ -11,7 +11,7 @@ document.getElementById("openOptions").addEventListener("click", (e) => {
 async function getApiBase() {
   const r = await chrome.storage.local.get(["apiBaseUrl"]);
   const b = String(r.apiBaseUrl || "").trim().replace(/\/$/, "");
-  return b || "http://127.0.0.1:3000";
+  return b || (typeof FOXVIZE_API_BASE !== "undefined" ? FOXVIZE_API_BASE : "https://foxvize.info");
 }
 
 function payloadFromForm() {
@@ -67,7 +67,7 @@ btnLoad.addEventListener("click", async () => {
   } catch (e) {
     msgEl.className = "err";
     msgEl.textContent =
-      "Bağlanılamadı. Next.js çalışıyor mu? Örn: cd web && npm run dev\n" +
+      "Bağlanılamadı. foxvize.info açılıyor mu? Ayarlar → API adresi doğru mu?\n" +
       String(e);
   } finally {
     btnLoad.disabled = false;

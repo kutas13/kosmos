@@ -24,10 +24,11 @@
 <body>
   <h1>Kosmos başvuru doldurucu — seçenekler</h1>
   <p class="hint">
-    <strong>API kök adresi</strong> (müşteri yükleme): örn. <code>http://127.0.0.1:8765</code> — sonda <code>/</code> olmasın.
+    <strong>API kök adresi</strong> (müşteri ID ile yükleme): varsayılan <code>https://foxvize.info</code> — sonda <code>/</code> olmasın.
+    Önizleme için Vercel adresini de yazabilirsiniz.
   </p>
   <h2>apiBaseUrl</h2>
-  <input type="text" id="apiBaseUrl" spellcheck="false" style="width:100%;padding:8px;font-size:13px;box-sizing:border-box" placeholder="https://foxvize.info veya http://127.0.0.1:3000" />
+  <input type="text" id="apiBaseUrl" spellcheck="false" style="width:100%;padding:8px;font-size:13px;box-sizing:border-box" placeholder="https://foxvize.info" />
 
   <p class="hint">
     <strong>Sabit alanlar</strong> her doldurmada aynı kalır. JSON dizisi: <code>type</code> = <code>fill</code> veya
@@ -81,6 +82,7 @@
   <button type="button" id="save">Kaydet</button>
   <p id="status"></p>
 
+  <script src="defaults.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

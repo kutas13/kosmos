@@ -12,7 +12,9 @@ function load() {
       "wizardStep3",
     ],
     (r) => {
-      $("apiBaseUrl").value = r.apiBaseUrl ?? "http://127.0.0.1:3000";
+      $("apiBaseUrl").value =
+        r.apiBaseUrl ??
+        (typeof FOXVIZE_API_BASE !== "undefined" ? FOXVIZE_API_BASE : "https://foxvize.info");
       $("staticFields").value = JSON.stringify(r.staticFields ?? [], null, 2);
       $("dynamicLabels").value = JSON.stringify(r.dynamicLabels ?? {}, null, 2);
       $("dynamicFieldMap").value = JSON.stringify(r.dynamicFieldMap ?? {}, null, 2);
@@ -30,7 +32,9 @@ function setStatus(text, isErr) {
 }
 
 $("save").addEventListener("click", () => {
-  const apiBaseUrl = $("apiBaseUrl").value.trim().replace(/\/$/, "") || "http://127.0.0.1:3000";
+  const apiBaseUrl =
+    $("apiBaseUrl").value.trim().replace(/\/$/, "") ||
+    (typeof FOXVIZE_API_BASE !== "undefined" ? FOXVIZE_API_BASE : "https://foxvize.info");
   let staticFields;
   let dynamicLabels;
   let dynamicFieldMap;

@@ -1,3 +1,11 @@
+# Gizli anahtarlar (asla commit yok)
+.env.local
+.env
+**/.env.local
+
+# Next.js
+.next/
+
 __pycache__/
 *.pyc
 .env
