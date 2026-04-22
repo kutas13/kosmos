@@ -119,6 +119,8 @@ async function recognizeSegments(worker, segments) {
 async function recognizeMulti(images, segmentGroups, expectLen) {
   const worker = await getWorker();
   const all = [];
+  // Pozisyon bazli per-karakter oy kutusu (segmentlerden gelen)
+  const posVotes = Array.from({ length: expectLen }, () => ({}));
 
   // 1) Whole-image OCR (multi-PSM)
   for (let i = 0; i < images.length; i++) {
@@ -145,7 +147,7 @@ async function recognizeMulti(images, segmentGroups, expectLen) {
     }
   }
 
-  // 2) Segmentasyon: 4 ayri rakam, her biri PSM 10 + fallbacks
+  // 2) Segmentasyon: her grupta expectLen adet rakam; her biri PSM 10+fallback
   if (Array.isArray(segmentGroups) && segmentGroups.length) {
     for (let g = 0; g < segmentGroups.length; g++) {
       const grp = segmentGroups[g];
@@ -164,6 +166,13 @@ async function recognizeMulti(images, segmentGroups, expectLen) {
           perDigit: seg.perDigit,
           psm: "seg",
         });
+        // Per-pozisyon karakter oylari (segment sonucunun guveni ile)
+        seg.perDigit.forEach((pd, p) => {
+          if (p >= expectLen) return;
+          if (!pd.ch || !/^\d$/.test(pd.ch)) return;
+          const w = 1 + (pd.confidence || 0) / 100;
+          posVotes[p][pd.ch] = (posVotes[p][pd.ch] || 0) + w;
+        });
       } catch (e) {
         all.push({
           source: "segments",
@@ -178,54 +187,63 @@ async function recognizeMulti(images, segmentGroups, expectLen) {
     }
   }
 
-  // 3) Oy verme: her pozisyon icin en cok goren rakam
-  // Sadece expectLen uzunlugundaki sonuclari say. Segment sonuclari double-weight.
-  const votes = Array.from({ length: expectLen }, () => ({}));
-  let votedCount = 0;
+  // 3a) Whole-image sonuclari arasinda pozisyon bazli oylar (sadece expectLen olanlar)
   for (const a of all) {
+    if (a.source !== "whole") continue;
     if (!a.digits || a.digits.length !== expectLen) continue;
-    const weight =
-      a.source === "segments"
-        ? 2 + (a.confidence / 100) // segmentasyona guveniyoruz
-        : 1 + (a.confidence / 100);
     for (let p = 0; p < expectLen; p++) {
       const ch = a.digits.charAt(p);
-      votes[p][ch] = (votes[p][ch] || 0) + weight;
+      if (!/^\d$/.test(ch)) continue;
+      const w = 1 + (a.confidence || 0) / 100;
+      posVotes[p][ch] = (posVotes[p][ch] || 0) + w;
     }
-    votedCount++;
   }
 
-  let voted = null;
-  if (votedCount >= 2) {
-    let code = "";
-    let minVote = Infinity;
+  // 3b) Segment-agirlikli oylar (ikinci gecis; segments extra onem)
+  for (const a of all) {
+    if (a.source !== "segments") continue;
+    if (!a.digits || a.digits.length !== expectLen) continue;
     for (let p = 0; p < expectLen; p++) {
-      const v = votes[p];
-      let bestCh = "";
-      let bestW = -1;
-      for (const ch in v) {
-        if (v[ch] > bestW) {
-          bestW = v[ch];
-          bestCh = ch;
-        }
-      }
-      if (bestW < minVote) minVote = bestW;
-      code += bestCh;
-    }
-    if (code.length === expectLen && /^\d+$/.test(code)) {
-      voted = {
-        source: "voting",
-        digits: code,
-        raw: code,
-        psm: "vote",
-        confidence: Math.min(99, Math.round(minVote * 20)),
-        tried: votedCount,
-      };
-      all.push(voted);
+      const ch = a.digits.charAt(p);
+      if (!/^\d$/.test(ch)) continue;
+      const w = 1.5 + (a.confidence || 0) / 100;
+      posVotes[p][ch] = (posVotes[p][ch] || 0) + w;
     }
   }
 
-  // Siralama: exact-length > length-closer > source priority (voted/segments > whole) > confidence
+  // 4) Voting: her pozisyon icin en cok oy alan karakteri topla
+  let votedCode = "";
+  let minWeight = Infinity;
+  let sumWeight = 0;
+  for (let p = 0; p < expectLen; p++) {
+    const v = posVotes[p];
+    let bestCh = "";
+    let bestW = -1;
+    for (const ch in v) {
+      if (v[ch] > bestW) {
+        bestW = v[ch];
+        bestCh = ch;
+      }
+    }
+    if (bestCh) {
+      votedCode += bestCh;
+      if (bestW < minWeight) minWeight = bestW;
+      sumWeight += bestW;
+    }
+  }
+  if (votedCode.length === expectLen && /^\d+$/.test(votedCode)) {
+    all.push({
+      source: "voting",
+      digits: votedCode,
+      raw: votedCode,
+      psm: "vote",
+      // Minimum pozisyon guveni -> genel guven tahminimiz
+      confidence: Math.min(99, Math.round(minWeight * 25)),
+      sumWeight: Math.round(sumWeight),
+    });
+  }
+
+  // 5) Siralama
   const sourceRank = (s) => (s === "voting" ? 3 : s === "segments" ? 2 : 1);
   all.sort((a, b) => {
     const aExact = a.digits.length === expectLen ? 1 : 0;
@@ -298,6 +316,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const ms = Math.round(performance.now() - t0);
         const best = ranked[0];
         const code = (best?.digits || "").slice(0, expectLen);
+        // Debug: ilk 6 denemenin ozeti (source/digits/confidence)
+        const debug = ranked.slice(0, 6).map((a) => ({
+          source: a.source,
+          digits: a.digits || "",
+          confidence: Math.round(a.confidence || 0),
+          psm: a.psm || "-",
+          label: a.label,
+        }));
         sendResponse({
           ok: code.length === expectLen,
           code,
@@ -308,12 +334,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           confidence: Math.round(best?.confidence || 0),
           ms,
           tried: ranked.length,
+          numVariants: imgs.length,
+          numGroups: groups.length,
+          debug,
           error:
             code.length === expectLen
               ? undefined
               : "OCR " + expectLen + " haneli kod bulamadi (en iyi: '" +
                 (best?.raw || "(bos)").slice(0, 20) + "' / " +
-                Math.round(best?.confidence || 0) + "%)",
+                Math.round(best?.confidence || 0) + "%) — debug: " +
+                debug.map((d) => `${d.source}=${d.digits}@${d.confidence}`).join(", "),
         });
       } catch (e) {
         sendResponse({ ok: false, error: "OCR hatasi: " + (e && e.message ? e.message : String(e)) });

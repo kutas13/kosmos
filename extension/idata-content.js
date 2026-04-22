@@ -205,10 +205,10 @@
   }
 
   /**
-   * Canvas icindeki rakamlari ayirir.
-   * Dikey projeksiyon: her sutunda siyah piksel sayisi; bosluklara gore
-   * 4 (idealde) bounding box cikarir. Bos veya yanlis sayida segment
-   * bulursa bos dizi doner.
+   * Canvas icindeki rakamlari ayirir. Toleransli: 3-6 segment arasi kabul
+   * eder ve normalize ederek tam olarak expectN kutu dondurmeye calisir.
+   * - Fazla ise: en dar komsulari birlestir
+   * - Az ise:   en genis olani orta bosluktan bol
    */
   function segmentDigitsFromCanvas(canvas, expectN = 4) {
     if (!canvas) return [];
@@ -225,44 +225,80 @@
       }
       col[x] = c;
     }
-    // Bir sutun "dolu" sayilsin: kendisinde >=minBlk piksel olsun
-    const minBlk = Math.max(2, Math.floor(h * 0.05));
+
+    // Cok dusuk esikle baslayalim; rakamin her yerinde az bile olsa siyah
+    // varsa "dolu" sayilsin ki ince rakamlari kaybetmeyelim.
+    const minBlk = Math.max(2, Math.floor(h * 0.03));
     const runs = [];
     let s = -1;
     for (let x = 0; x < w; x++) {
       const filled = col[x] >= minBlk;
       if (filled && s === -1) s = x;
       else if (!filled && s !== -1) {
-        if (x - s >= 4) runs.push({ x0: s, x1: x });
+        if (x - s >= 3) runs.push({ x0: s, x1: x });
         s = -1;
       }
     }
     if (s !== -1) runs.push({ x0: s, x1: w });
 
-    // Cok kucuk parcalari ele: genislik < genel median * 0.2
     if (!runs.length) return [];
+
+    // Cok kucuk gurultu parcalarini ele
     const widths = runs.map((r) => r.x1 - r.x0).sort((a, b) => a - b);
     const median = widths[Math.floor(widths.length / 2)];
-    let filtered = runs.filter((r) => r.x1 - r.x0 >= Math.max(4, median * 0.2));
+    let segs = runs.filter((r) => r.x1 - r.x0 >= Math.max(3, median * 0.18));
 
-    // Eger hala beklediğimizden fazla segment varsa ard arda olan kucukleri birlestir
-    if (filtered.length > expectN) {
-      // Cok kisa gap varsa birlestir
-      const merged = [filtered[0]];
-      for (let i = 1; i < filtered.length; i++) {
-        const prev = merged[merged.length - 1];
-        const gap = filtered[i].x0 - prev.x1;
-        if (gap <= Math.max(3, median * 0.12)) {
-          prev.x1 = filtered[i].x1;
-        } else {
-          merged.push({ ...filtered[i] });
+    // Kucuk bosluklari birlestirerek fazlaysa azaltalim
+    while (segs.length > expectN) {
+      // En dar segmenti komsusu (daha dar gap olan) ile birlestir
+      let bestI = -1;
+      let bestGap = Infinity;
+      for (let i = 0; i < segs.length - 1; i++) {
+        const gap = segs[i + 1].x0 - segs[i].x1;
+        if (gap < bestGap) {
+          bestGap = gap;
+          bestI = i;
         }
       }
-      filtered = merged;
+      if (bestI < 0) break;
+      segs[bestI] = { x0: segs[bestI].x0, x1: segs[bestI + 1].x1 };
+      segs.splice(bestI + 1, 1);
     }
 
-    // Her segment icin dikey bounding bul (beyaz ust/alt kirp)
-    const boxes = filtered.map((r) => {
+    // Azsa: en genis segmenti ortada bol
+    while (segs.length < expectN) {
+      let bestI = -1;
+      let bestW = -1;
+      for (let i = 0; i < segs.length; i++) {
+        const width = segs[i].x1 - segs[i].x0;
+        if (width > bestW) {
+          bestW = width;
+          bestI = i;
+        }
+      }
+      if (bestI < 0 || bestW < 10) break;
+      // Ortasini bol (daha iyisi: o segment icinde minimum col ile bolmek ama
+      // baslangic icin ortadan bol yeter)
+      const seg = segs[bestI];
+      // Segmentin icinde orta civarinda minimum yogunlukta kolonu bul
+      const mid = Math.round((seg.x0 + seg.x1) / 2);
+      const radius = Math.max(4, Math.floor((seg.x1 - seg.x0) * 0.15));
+      let bestCol = mid;
+      let bestColBlk = Infinity;
+      for (let x = mid - radius; x <= mid + radius; x++) {
+        if (x <= seg.x0 + 2 || x >= seg.x1 - 2) continue;
+        if (col[x] < bestColBlk) {
+          bestColBlk = col[x];
+          bestCol = x;
+        }
+      }
+      const left = { x0: seg.x0, x1: bestCol };
+      const right = { x0: bestCol, x1: seg.x1 };
+      segs.splice(bestI, 1, left, right);
+    }
+
+    // Her segment icin dikey bounding bul (ust/alt beyazlari kirp)
+    const boxes = segs.map((r) => {
       let top = h;
       let bot = 0;
       for (let x = r.x0; x < r.x1; x++) {
@@ -310,11 +346,16 @@
     const variants = [];
     const groups = []; // { segments: [dataUrl x4], label }
 
+    // Closing'i default kapali tuttuk — agresif olunca bitisik rakamlari
+    // birlestirip tesseract'i sasirtiyordu. Sadece son cagari olarak bir
+    // hafif closing spec ekliyoruz.
     const specs = [
-      { scale: 3, thresh: 120, denoise: true, closing: true, label: "3x/120/closing" },
-      { scale: 3, thresh: 110, denoise: true, closing: true, label: "3x/110/closing" },
-      { scale: 3, thresh: 130, denoise: true, closing: false, label: "3x/130" },
-      { scale: 4, thresh: 120, denoise: true, closing: true, label: "4x/120/closing" },
+      { scale: 3, thresh: 125, denoise: true, closing: false, label: "3x/125" },
+      { scale: 3, thresh: 100, denoise: true, closing: false, label: "3x/100" },
+      { scale: 3, thresh: 140, denoise: false, closing: false, label: "3x/140/nodenoise" },
+      { scale: 4, thresh: 125, denoise: true, closing: false, label: "4x/125" },
+      // Yedek: ince cizgileri kurtarmak icin HAFIF closing (yalnizca 1 spec)
+      { scale: 3, thresh: 100, denoise: false, closing: true, label: "3x/100/closing" },
     ];
 
     for (const spec of specs) {
@@ -322,7 +363,7 @@
       if (!canvas) continue;
       const whole = canvasToDataUrl(canvas);
       if (whole) variants.push(whole);
-      // Segment 4 basamaga
+      // Segment 4 basamaga (toleransli)
       const boxes = segmentDigitsFromCanvas(canvas, 4);
       if (boxes.length === 4) {
         const segs = boxes.map((b) => cropDigitToDataUrl(canvas, b)).filter(Boolean);
