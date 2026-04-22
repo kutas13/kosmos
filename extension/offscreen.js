@@ -27,6 +27,10 @@ async function getWorker() {
       logger: () => {},
       cacheMethod: "none",
       gzip: true,
+      // KRITIK: Chrome extension'da Blob URL kullanilirsa worker origin "null" olur
+      // ve importScripts ile chrome-extension:// resource'lari yukleyemez.
+      // workerBlobURL: false => dogrudan extension URL'den yuklenir, ayni origin.
+      workerBlobURL: false,
     };
     const w = await Tesseract.createWorker("eng", 1, opts);
     await w.setParameters({
