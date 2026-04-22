@@ -193,6 +193,7 @@ const almIdInput = document.getElementById("alm_id");
 const almAd = document.getElementById("alm_ad_soyad");
 const almPas = document.getElementById("alm_pasaport_no");
 const almBrk = document.getElementById("alm_barkod_no");
+const almCap = document.getElementById("alm_captcha");
 
 function setAlmMsg(text, kind) {
   msgAlmEl.textContent = text || "";
@@ -369,9 +370,14 @@ async function runAlmFill(alsoClick) {
     setAlmMsg(`#${idNum} pasaportu zaten ÇIKTI. Yeniden sorgulama engellendi.`, "err");
     return;
   }
-  const payload = { ...almPayloadFromForm(), id: idNum };
+  const captcha = (almCap.value || "").trim();
+  const payload = { ...almPayloadFromForm(), id: idNum, captcha };
   if (!payload.pasaport_no || !payload.barkod_no) {
     setAlmMsg("Pasaport ve Barkod alanlari dolu olmalidir. Önce Yükle butonuna basın.", "err");
+    return;
+  }
+  if (alsoClick && !captcha) {
+    setAlmMsg("CAPTCHA kodunu girin (sayfadaki 4 haneli doğrulama kodu).", "err");
     return;
   }
   chrome.storage.local.set({ lastAlmFill: almPayloadFromForm(), lastAlmanyaId: idNum });
@@ -394,20 +400,38 @@ async function runAlmFill(alsoClick) {
       return;
     }
 
-    if (alsoClick) {
-      setAlmMsg("Alanlar dolduruldu. CAPTCHA'yı girin, Sorgula otomatik çalışacak…", "ok");
-      // CAPTCHA icin kullaniciya zaman tanimaya gerek yok — kullanici kendisi basar.
-      // Yine de isteyen kullanici icin: ALMANYA_CLICK_SORGULA'yi sadece captcha girilmis gibi
-      // gozukuyorsa tetikleyin. Basitlik icin direkt tiklamiyoruz;
-      // "Sayfayi Doldur + Sorgula" butonu zaten sadece doldurur,
-      // CAPTCHA manuel oldugu icin tiklamayi kullaniciya birakmak daha guvenli.
-      // Kullanici her ihtimale karsi tiklamak isterse: asagidaki cagri yorum satiri.
-      // await sendToIdataTab("ALMANYA_CLICK_SORGULA", {});
-    } else {
+    if (!alsoClick) {
       setAlmMsg("Alanlar dolduruldu. CAPTCHA'yı girip Sorgula butonuna siz basın.", "ok");
+      return;
+    }
+
+    // Sorgula'ya tikla ve sonucu bekle
+    setAlmMsg("Sorgulanıyor…", "ok");
+    const clickRes = await sendToIdataTab("ALMANYA_CLICK_SORGULA", {});
+    if (!clickRes || !clickRes.ok) {
+      setAlmMsg((clickRes && clickRes.error) || "Sorgula butonu çalıştırılamadı.", "err");
+      return;
+    }
+
+    // Sonucu bekle (en fazla ~15sn)
+    const waitRes = await sendToIdataTab("ALMANYA_WAIT_RESULT", { timeoutMs: 15000 });
+    if (!waitRes || !waitRes.ok) {
+      setAlmMsg("Sonuç zaman aşımı — sayfaya bakıp tekrar deneyin.", "err");
+      return;
+    }
+
+    const d = waitRes.durum || "beklemede";
+    const mesaj = waitRes.mesaj || "";
+    if (d === "cikmis") {
+      setAlmMsg(`✓ ÇIKTI — pasaport hazır. (${mesaj || "hazır"})`, "ok");
+    } else if (d === "hata") {
+      setAlmMsg(`✗ HATA — ${mesaj || "Sistemimizde böyle bir pasaport tanımlı değil."}`, "err");
+    } else if (d === "islemde") {
+      setAlmMsg(`⏳ İŞLEMDE — ${mesaj || "Başvuru süreci devam ediyor."}`, "warn");
+    } else {
+      setAlmMsg("Sonuç: beklemede", "warn");
     }
   } finally {
-    // Yeniden etkinlestirme cikti degilse
     updateAlmIdState();
   }
 }

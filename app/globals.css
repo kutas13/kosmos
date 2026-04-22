@@ -172,6 +172,15 @@ body {
   grid-template-columns: 1fr 1fr 1.1fr;
 }
 
+.grid.grid-4 {
+  grid-template-columns: 1.1fr 1fr 1fr 1.2fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 1300px) {
+  .grid.grid-4 { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 1100px) {
   .grid.grid-3 { grid-template-columns: 1fr 1fr; }
   .grid.grid-3 .card-almanya { grid-column: 1 / -1; }
@@ -181,6 +190,7 @@ body {
   .grid { grid-template-columns: 1fr; }
   .grid.grid-3 { grid-template-columns: 1fr; }
   .grid.grid-3 .card-almanya { grid-column: auto; }
+  .grid.grid-4 { grid-template-columns: 1fr; }
 }
 
 /* Almanya karti vurgusu */
@@ -204,6 +214,115 @@ body {
   border-radius: 6px;
   vertical-align: middle;
 }
+
+/* ── Yunan liste karti hafif vurgu ── */
+.card-yunan {
+  border-color: rgba(99, 155, 255, 0.35);
+}
+
+/* ── Almanya kayit karti sari vurgu ── (card-almanya zaten tanimli) */
+
+/* ── Almanya liste karti: durum rozetleri + satir renklendirme ── */
+.durum-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+.dl {
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.dl-cikmis { background: rgba(74, 222, 128, 0.15); color: #4ade80; border-color: rgba(74,222,128,0.35); }
+.dl-islemde { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251,191,36,0.35); }
+.dl-hata { background: rgba(255, 107, 107, 0.15); color: #ff6b6b; border-color: rgba(255,107,107,0.35); }
+.dl-bek { background: rgba(122, 139, 164, 0.12); color: var(--muted); border-color: rgba(122,139,164,0.3); }
+
+/* Satir renkleri */
+.list li.alm-row {
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border-bottom: none;
+  margin-bottom: 0.3rem;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.list li.alm-cikmis {
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+.list li.alm-cikmis:hover { background: rgba(74, 222, 128, 0.14); }
+.list li.alm-cikmis .info .name { color: #d1fadf; }
+
+.list li.alm-hata {
+  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(255, 107, 107, 0.35);
+}
+.list li.alm-hata:hover { background: rgba(255, 107, 107, 0.14); }
+
+.list li.alm-islemde {
+  background: rgba(251, 191, 36, 0.06);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.list li.alm-beklemede {
+  background: rgba(122, 139, 164, 0.04);
+  border-color: rgba(122, 139, 164, 0.18);
+}
+
+.badge-durum {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.08rem 0.5rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 6px;
+  vertical-align: middle;
+  border: 1px solid transparent;
+}
+.badge-durum.b-cikmis {
+  color: #0a1a10;
+  background: linear-gradient(135deg, #86efac, #4ade80);
+}
+.badge-durum.b-islemde {
+  color: #2a1a04;
+  background: linear-gradient(135deg, #fcd34d, #fbbf24);
+}
+.badge-durum.b-hata {
+  color: #2a0a0a;
+  background: linear-gradient(135deg, #fca5a5, #ff6b6b);
+}
+.badge-durum.b-beklemede {
+  color: var(--muted);
+  background: rgba(122, 139, 164, 0.15);
+  border-color: rgba(122, 139, 164, 0.35);
+}
+
+.alert-icon {
+  display: inline-block;
+  margin-right: 0.35rem;
+  color: #ff6b6b;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+}
+
+.alm-mesaj {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.35;
+}
+.list li.alm-hata .alm-mesaj { color: #ffb8b8; }
+.list li.alm-cikmis .alm-mesaj { color: #a7f3d0; }
 
 /* ── CARDS ── */
 .card {

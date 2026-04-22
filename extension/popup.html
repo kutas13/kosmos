@@ -203,6 +203,18 @@
     #msg:empty { display: none; }
     #msg.err { color: var(--err); }
     #msg.ok { color: var(--ok); }
+    #msgAlm {
+      margin-top: 8px;
+      font-size: 12px;
+      min-height: 1.5em;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      padding: 0 2px;
+    }
+    #msgAlm:empty { display: none; }
+    #msgAlm.err { color: var(--err); }
+    #msgAlm.ok { color: var(--ok); }
+    #msgAlm.warn { color: #fbbf24; }
 
     .footer-line {
       text-align: center;
@@ -359,10 +371,14 @@
             <label for="alm_barkod_no">Barkod No</label>
             <input id="alm_barkod_no" name="alm_barkod_no" required maxlength="20" />
           </div>
-          <button type="submit" class="btn-primary" id="btnAlmSorgula">Sayfayi Doldur + Sorgula</button>
+          <div class="field">
+            <label for="alm_captcha">Doğrulama Kodu (CAPTCHA)</label>
+            <input id="alm_captcha" name="alm_captcha" maxlength="8" autocomplete="off" placeholder="Sayfadaki 4 haneli kodu yazın" style="text-transform: uppercase;" />
+          </div>
+          <button type="submit" class="btn-primary" id="btnAlmSorgula">Doldur + Sorgula</button>
         </form>
         <button type="button" class="btn-ghost" id="btnAlmFillOnly">Sadece Doldur (Sorgula bana birak)</button>
-        <p class="alm-info">idata.com.tr/de/tr/p/basvuru-takip-de sayfasında olduğunuzdan emin olun. CAPTCHA kodunu elle girmeniz gerekir.</p>
+        <p class="alm-info">idata.com.tr/de/tr/p/basvuru-takip-de sayfasında olun. CAPTCHA kodunu üstteki alana yazın — eklenti sayfaya aktarır ve Sorgula'ya otomatik tıklar.</p>
       </div>
 
       <div id="msgAlm"></div>

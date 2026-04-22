@@ -11,6 +11,8 @@ type Musteri = {
   telefon: string;
 };
 
+type AlmanyaDurum = "beklemede" | "islemde" | "cikmis" | "hata";
+
 type AlmanyaKayit = {
   id: number;
   ad_soyad: string;
@@ -18,6 +20,9 @@ type AlmanyaKayit = {
   barkod_no: string;
   cikti: boolean;
   cikti_at: string | null;
+  durum: AlmanyaDurum;
+  son_mesaj: string | null;
+  sorgu_at: string | null;
 };
 
 function formatDogumInput(raw: string) {
@@ -31,7 +36,6 @@ function formatDogumInput(raw: string) {
   return formatted;
 }
 
-/** GG.AA.YYYY formatindan yas hesapla. Gecersizse null doner. */
 function calcAge(ddmmyyyy: string): number | null {
   const m = ddmmyyyy.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (!m) return null;
@@ -42,6 +46,15 @@ function calcAge(ddmmyyyy: string): number | null {
   const monthDiff = today.getMonth() - birth.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
   return age;
+}
+
+function durumLabel(d: AlmanyaDurum): string {
+  switch (d) {
+    case "cikmis": return "ÇIKTI";
+    case "islemde": return "İŞLEMDE";
+    case "hata": return "HATA";
+    default: return "BEKLEMEDE";
+  }
 }
 
 export default function HomePage() {
@@ -63,7 +76,7 @@ export default function HomePage() {
   const isChild = dogum.length === 10 && (calcAge(dogum) ?? 99) < 12;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Almanya Pasaport Takip
+  // Almanya
   const [almAd, setAlmAd] = useState("");
   const [almPasaport, setAlmPasaport] = useState("");
   const [almBarkod, setAlmBarkod] = useState("");
@@ -107,6 +120,12 @@ export default function HomePage() {
     refreshList("");
     refreshAlmanyaList("");
   }, [refreshList, refreshAlmanyaList]);
+
+  // Almanya listesini periyodik yenile (eklenti arka planda durum isaretliyor)
+  useEffect(() => {
+    const t = setInterval(() => refreshAlmanyaList(almSearch.trim()), 15000);
+    return () => clearInterval(t);
+  }, [refreshAlmanyaList, almSearch]);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -161,15 +180,10 @@ export default function HomePage() {
     if (!confirm(`#${id} numaralı müşteriyi silmek istediğinize emin misiniz?`)) return;
     try {
       const r = await fetch(`/api/musteri/${id}`, { method: "DELETE" });
-      if (!r.ok) {
-        alert("Silinemedi");
-        return;
-      }
+      if (!r.ok) { alert("Silinemedi"); return; }
       if (editingId === id) clearForm();
       await refreshList(search.trim());
-    } catch {
-      alert("Hata");
-    }
+    } catch { alert("Hata"); }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -208,16 +222,10 @@ export default function HomePage() {
       setStatusKind("ok");
       setNewId(savedId);
       setShowIdBox(true);
-
       try { await navigator.clipboard.writeText(savedId); } catch { /* */ }
-
       try {
-        window.postMessage(
-          { type: "FOXVIZE_MUSTERI_SAVED", payload: j },
-          "*"
-        );
-      } catch { /* eklenti yoksa sorun değil */ }
-
+        window.postMessage({ type: "FOXVIZE_MUSTERI_SAVED", payload: j }, "*");
+      } catch { /* */ }
       setStatusText(
         isEdit
           ? `#${savedId} güncellendi.`
@@ -266,15 +274,10 @@ export default function HomePage() {
     if (!confirm(`Almanya kaydı #${id} silinsin mi?`)) return;
     try {
       const r = await fetch(`/api/almanya/${id}`, { method: "DELETE" });
-      if (!r.ok) {
-        alert("Silinemedi");
-        return;
-      }
+      if (!r.ok) { alert("Silinemedi"); return; }
       if (almEditingId === id) clearAlmForm();
       await refreshAlmanyaList(almSearch.trim());
-    } catch {
-      alert("Hata");
-    }
+    } catch { alert("Hata"); }
   }
 
   async function onAlmSubmit(e: React.FormEvent) {
@@ -311,16 +314,10 @@ export default function HomePage() {
       setAlmStatusKind("ok");
       setAlmNewId(savedId);
       setAlmShowIdBox(true);
-
       try { await navigator.clipboard.writeText(savedId); } catch { /* */ }
-
       try {
-        window.postMessage(
-          { type: "FOXVIZE_ALMANYA_SAVED", payload: j },
-          "*"
-        );
+        window.postMessage({ type: "FOXVIZE_ALMANYA_SAVED", payload: j }, "*");
       } catch { /* */ }
-
       setAlmStatusText(
         isEdit
           ? `#${savedId} güncellendi.`
@@ -346,9 +343,10 @@ export default function HomePage() {
           FoxVize <span>· Müşteri Yönetimi</span>
         </div>
         <div className="nav-links">
-          <a href="#form-section">Kayıt</a>
-          <a href="#list-section">Müşteriler</a>
-          <a href="#almanya-section">Almanya Pasaport</a>
+          <a href="#yunan-liste">Yunan Liste</a>
+          <a href="#yunan-kayit">Yunan Kayıt</a>
+          <a href="#almanya-kayit">Almanya Kayıt</a>
+          <a href="#almanya-liste">Almanya Liste</a>
           <a href="#download-section">Eklenti</a>
         </div>
       </nav>
@@ -375,33 +373,71 @@ export default function HomePage() {
           </a>
         </section>
 
-        <div className="grid grid-3">
-          <section className="card" id="form-section">
+        <div className="grid grid-4">
+          {/* 1. En sol: YUNAN LİSTE */}
+          <section className="card card-yunan-list" id="yunan-liste">
+            <h3>Yunan — Kayıtlı Müşteriler</h3>
+            <div className="search-wrap">
+              <input
+                type="text"
+                placeholder="İsim veya TC ile ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="list-container">
+              <ul className="list">
+                {displayRows.length === 0 ? (
+                  <li className="empty-state">Kayıt bulunamadı</li>
+                ) : (
+                  displayRows.map((m) => (
+                    <li key={m.id}>
+                      <div className="info">
+                        <div className="name">
+                          #{m.id} — {m.ad} {m.soyad}
+                        </div>
+                        <div className="meta">
+                          TC {m.tc}
+                          {m.telefon ? ` · ${m.telefon}` : ""}
+                        </div>
+                      </div>
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="act-btn act-edit"
+                          onClick={() => editMusteri(m.id)}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          className="act-btn act-del"
+                          onClick={() => deleteMusteri(m.id)}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </section>
+
+          {/* 2. YUNAN KAYIT formu */}
+          <section className="card card-yunan" id="yunan-kayit">
             <h3>Yunan — Müşteri Kaydı</h3>
             <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.75rem", lineHeight: 1.45 }}>
-              Kaydettiğinizde size <strong>1–999</strong> arası rastgele ve benzersiz bir müşteri numarası verilir
-              (en fazla 999 kayıt).
+              Kaydettiğinizde size <strong>1–999</strong> arası rastgele ve benzersiz bir müşteri numarası verilir.
             </p>
             <form onSubmit={onSubmit}>
               <div className="field">
                 <label htmlFor="ad">Ad</label>
-                <input
-                  id="ad"
-                  value={ad}
-                  onChange={(e) => setAd(e.target.value)}
-                  required
-                  autoComplete="given-name"
-                />
+                <input id="ad" value={ad} onChange={(e) => setAd(e.target.value)} required autoComplete="given-name" />
               </div>
               <div className="field">
                 <label htmlFor="soyad">Soyad</label>
-                <input
-                  id="soyad"
-                  value={soyad}
-                  onChange={(e) => setSoyad(e.target.value)}
-                  required
-                  autoComplete="family-name"
-                />
+                <input id="soyad" value={soyad} onChange={(e) => setSoyad(e.target.value)} required autoComplete="family-name" />
               </div>
               <div className="field">
                 <label htmlFor="tc">T.C. Kimlik No (11 hane)</label>
@@ -463,72 +499,16 @@ export default function HomePage() {
             )}
           </section>
 
-          <section className="card" id="list-section">
-            <h3>Kayıtlı Müşteriler</h3>
-            <div className="search-wrap">
-              <input
-                type="text"
-                placeholder="İsim veya TC ile ara..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="list-container">
-              <ul className="list">
-                {displayRows.length === 0 ? (
-                  <li className="empty-state">Kayıt bulunamadı</li>
-                ) : (
-                  displayRows.map((m) => (
-                    <li key={m.id}>
-                      <div className="info">
-                        <div className="name">
-                          #{m.id} — {m.ad} {m.soyad}
-                        </div>
-                        <div className="meta">
-                          TC {m.tc}
-                          {m.telefon ? ` · ${m.telefon}` : ""}
-                        </div>
-                      </div>
-                      <div className="actions">
-                        <button
-                          type="button"
-                          className="act-btn act-edit"
-                          onClick={() => editMusteri(m.id)}
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          type="button"
-                          className="act-btn act-del"
-                          onClick={() => deleteMusteri(m.id)}
-                        >
-                          Sil
-                        </button>
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </section>
-
-          <section className="card card-almanya" id="almanya-section">
-            <h3>Almanya Pasaport Takip</h3>
+          {/* 3. ALMANYA KAYIT formu */}
+          <section className="card card-almanya" id="almanya-kayit">
+            <h3>Almanya — Müşteri Kaydı</h3>
             <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.75rem", lineHeight: 1.45 }}>
-              idata.com.tr Almanya başvuru takibi için kayıt oluşturun. Her kayda
-              <strong> 1–999</strong> arası benzersiz bir ID atanır. Eklentide
-              <strong> Almanya</strong> sekmesinden ID ile sorgulayabilirsiniz.
+              idata.com.tr Almanya pasaport takibi için kayıt oluşturun. Her kayda <strong>1–999</strong> arası benzersiz ID atanır.
             </p>
             <form onSubmit={onAlmSubmit}>
               <div className="field">
                 <label htmlFor="alm_ad">İsim Soyisim</label>
-                <input
-                  id="alm_ad"
-                  value={almAd}
-                  onChange={(e) => setAlmAd(e.target.value)}
-                  required
-                  placeholder="Ad Soyad"
-                />
+                <input id="alm_ad" value={almAd} onChange={(e) => setAlmAd(e.target.value)} required placeholder="Ad Soyad" />
               </div>
               <div className="field">
                 <label htmlFor="alm_pasaport">Pasaport No</label>
@@ -571,49 +551,69 @@ export default function HomePage() {
             {almStatusText && (
               <div className={`status ${almStatusKind}`}>{almStatusText}</div>
             )}
+          </section>
 
-            <div className="search-wrap" style={{ marginTop: "1rem" }}>
+          {/* 4. En sağ: ALMANYA LİSTE */}
+          <section className="card card-almanya-list" id="almanya-liste">
+            <h3>Almanya — Kayıtlı Müşteriler</h3>
+            <div className="search-wrap">
               <input
                 type="text"
-                placeholder="İsim, pasaport veya barkod ile ara..."
+                placeholder="İsim, pasaport veya barkod..."
                 value={almSearch}
                 onChange={(e) => setAlmSearch(e.target.value)}
               />
             </div>
-            <div className="list-container" style={{ maxHeight: 280 }}>
+            <div className="durum-legend">
+              <span className="dl dl-cikmis">Çıktı</span>
+              <span className="dl dl-islemde">İşlemde</span>
+              <span className="dl dl-hata">Hata</span>
+              <span className="dl dl-bek">Beklemede</span>
+            </div>
+            <div className="list-container">
               <ul className="list">
                 {displayAlmRows.length === 0 ? (
                   <li className="empty-state">Kayıt bulunamadı</li>
                 ) : (
-                  displayAlmRows.map((m) => (
-                    <li key={m.id}>
-                      <div className="info">
-                        <div className="name">
-                          #{m.id} — {m.ad_soyad}{" "}
-                          {m.cikti && <span className="badge-cikti">ÇIKTI</span>}
+                  displayAlmRows.map((m) => {
+                    const durum = m.durum || "beklemede";
+                    const rowCls = `alm-row alm-${durum}`;
+                    return (
+                      <li key={m.id} className={rowCls}>
+                        <div className="info">
+                          <div className="name">
+                            {durum === "hata" && (
+                              <span className="alert-icon" title={m.son_mesaj || "Hata"}>⚠</span>
+                            )}
+                            #{m.id} — {m.ad_soyad}{" "}
+                            <span className={`badge-durum b-${durum}`}>{durumLabel(durum)}</span>
+                          </div>
+                          <div className="meta">
+                            Pas {m.pasaport_no} · Brk {m.barkod_no}
+                            {m.son_mesaj && (
+                              <div className="alm-mesaj">{m.son_mesaj}</div>
+                            )}
+                          </div>
                         </div>
-                        <div className="meta">
-                          Pas {m.pasaport_no} · Brk {m.barkod_no}
+                        <div className="actions">
+                          <button
+                            type="button"
+                            className="act-btn act-edit"
+                            onClick={() => editAlmanya(m.id)}
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            type="button"
+                            className="act-btn act-del"
+                            onClick={() => deleteAlmanya(m.id)}
+                          >
+                            Sil
+                          </button>
                         </div>
-                      </div>
-                      <div className="actions">
-                        <button
-                          type="button"
-                          className="act-btn act-edit"
-                          onClick={() => editAlmanya(m.id)}
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          type="button"
-                          className="act-btn act-del"
-                          onClick={() => deleteAlmanya(m.id)}
-                        >
-                          Sil
-                        </button>
-                      </div>
-                    </li>
-                  ))
+                      </li>
+                    );
+                  })
                 )}
               </ul>
             </div>

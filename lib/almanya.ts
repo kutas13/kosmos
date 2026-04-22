@@ -1,6 +1,15 @@
 export const ALMANYA_ID_MIN = 1;
 export const ALMANYA_ID_MAX = 999;
 
+export type AlmanyaDurum = "beklemede" | "islemde" | "cikmis" | "hata";
+
+export const ALMANYA_DURUM_VALUES: AlmanyaDurum[] = [
+  "beklemede",
+  "islemde",
+  "cikmis",
+  "hata",
+];
+
 export type AlmanyaPasaport = {
   id: number;
   ad_soyad: string;
@@ -8,6 +17,9 @@ export type AlmanyaPasaport = {
   barkod_no: string;
   cikti: boolean;
   cikti_at: string | null;
+  durum: AlmanyaDurum;
+  son_mesaj: string | null;
+  sorgu_at: string | null;
   created_at?: string;
 };
 
@@ -26,6 +38,10 @@ export function parseAlmanyaBody(body: unknown): AlmanyaInput | null {
 
 export function isValidAlmanyaId(id: number): boolean {
   return Number.isInteger(id) && id >= ALMANYA_ID_MIN && id <= ALMANYA_ID_MAX;
+}
+
+export function isValidDurum(v: unknown): v is AlmanyaDurum {
+  return typeof v === "string" && (ALMANYA_DURUM_VALUES as string[]).includes(v);
 }
 
 export function isUniqueViolation(err: { code?: string; message?: string }) {

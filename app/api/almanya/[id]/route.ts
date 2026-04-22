@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { corsEmpty, corsJson } from "@/lib/cors";
-import { isValidAlmanyaId, parseAlmanyaBody } from "@/lib/almanya";
+import { isValidAlmanyaId, isValidDurum, parseAlmanyaBody } from "@/lib/almanya";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -39,16 +39,41 @@ export async function PUT(req: Request, ctx: Ctx) {
     }
     const raw = await req.json().catch(() => null);
 
-    // Ozel endpoint benzeri: sadece cikti isaretle
-    if (raw && typeof raw === "object" && "cikti" in (raw as object)) {
-      const body = raw as { cikti?: boolean };
+    // Durum / cikti isaretleme (eklenti tarafindan cagrilir)
+    if (
+      raw &&
+      typeof raw === "object" &&
+      ("durum" in (raw as object) || "cikti" in (raw as object) || "son_mesaj" in (raw as object))
+    ) {
+      const body = raw as { durum?: unknown; cikti?: unknown; son_mesaj?: unknown };
+      const patch: Record<string, unknown> = {};
+
+      if ("durum" in body) {
+        if (!isValidDurum(body.durum)) {
+          return corsJson({ detail: "Gecersiz durum degeri" }, 422);
+        }
+        patch.durum = body.durum;
+        // cikti alanini durum ile senkron tut
+        patch.cikti = body.durum === "cikmis";
+        patch.cikti_at = body.durum === "cikmis" ? new Date().toISOString() : null;
+      } else if ("cikti" in body) {
+        const c = Boolean(body.cikti);
+        patch.cikti = c;
+        patch.cikti_at = c ? new Date().toISOString() : null;
+        if (c) patch.durum = "cikmis";
+      }
+
+      if ("son_mesaj" in body) {
+        const m = body.son_mesaj;
+        patch.son_mesaj = m == null ? null : String(m).slice(0, 500);
+      }
+
+      patch.sorgu_at = new Date().toISOString();
+
       const supabase = getSupabaseAdmin();
       const { data, error } = await supabase
         .from("almanya_pasaport")
-        .update({
-          cikti: Boolean(body.cikti),
-          cikti_at: body.cikti ? new Date().toISOString() : null,
-        })
+        .update(patch)
         .eq("id", id)
         .select()
         .maybeSingle();
