@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Kosmos başvuru doldurucu",
-  "version": "1.5.0",
-  "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr) + otomatik CAPTCHA OCR.",
+  "version": "1.6.0",
+  "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr) + yerel tesseract.js ile anında CAPTCHA OCR.",
   "permissions": ["storage", "activeTab"],
   "background": {
     "service_worker": "background.js"
@@ -33,7 +33,7 @@
         "https://www.idata.com.tr/*",
         "https://idata.com.tr/*"
       ],
-      "js": ["idata-content.js"],
+      "js": ["lib/tesseract/tesseract.min.js", "idata-content.js"],
       "run_at": "document_idle",
       "all_frames": false
     },
@@ -43,5 +43,20 @@
       "run_at": "document_idle",
       "all_frames": false
     }
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/tesseract/*",
+        "lib/tessdata/*"
+      ],
+      "matches": [
+        "https://www.idata.com.tr/*",
+        "https://idata.com.tr/*"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
 }

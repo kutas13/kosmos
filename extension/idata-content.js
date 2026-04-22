@@ -131,10 +131,59 @@
     }
   }
 
-  async function solveCaptchaViaServer() {
+  // ====== LOCAL TESSERACT.JS OCR ======
+  // Tesseract.js (tesseract.min.js) content_scripts sirasiyla onceden yuklenir.
+  // Worker'i sayfa acildiginda isin isin warmup yaparak ilk sorguda hiz kazaniriz.
+
+  let _tessWorkerPromise = null;
+
+  function _extUrl(p) {
+    try {
+      return chrome.runtime.getURL(p);
+    } catch {
+      return p;
+    }
+  }
+
+  async function getTessWorker() {
+    if (_tessWorkerPromise) return _tessWorkerPromise;
+    _tessWorkerPromise = (async () => {
+      if (typeof Tesseract === "undefined") {
+        throw new Error("Tesseract global yok (content_scripts yukleme sirasi?)");
+      }
+      const opts = {
+        workerPath: _extUrl("lib/tesseract/worker.min.js"),
+        corePath: _extUrl("lib/tesseract/tesseract-core-simd-lstm.wasm.js"),
+        langPath: _extUrl("lib/tessdata"),
+        // Logger'i sessize al
+        logger: () => {},
+        // Cache'i kapatmak yerine sessizce sakla (chrome-extension URL'inde cache API sorunlu olabilir)
+        cacheMethod: "none",
+        gzip: true,
+      };
+      const worker = await Tesseract.createWorker("eng", 1, opts);
+      // Sadece rakam; tek satir
+      await worker.setParameters({
+        tessedit_char_whitelist: "0123456789",
+        tessedit_pageseg_mode: "7",
+        classify_bln_numeric_mode: "1",
+      });
+      return worker;
+    })().catch((e) => {
+      _tessWorkerPromise = null; // hata olursa tekrar denenebilsin
+      throw e;
+    });
+    return _tessWorkerPromise;
+  }
+
+  // Sayfa yuklenince arkaplanda worker'i isit (ilk OCR <300ms olsun)
+  setTimeout(() => {
+    getTessWorker().catch((e) => console.warn("[idata] tesseract warmup hata:", e));
+  }, 500);
+
+  async function solveCaptchaLocal() {
     const img = findCaptchaImg();
     if (!img) return { ok: false, error: "CAPTCHA gorseli bulunamadi" };
-    // Yuklenmesini bekle (bazi sayfalar img'yi gec ceker)
     if (!img.complete || !img.naturalWidth) {
       await new Promise((r) => {
         const done = () => r();
@@ -146,29 +195,36 @@
     const pre = preprocessCaptchaToDataUrl(img) || img.src;
     if (!pre) return { ok: false, error: "On-isleme basarisiz" };
     try {
-      const r0 = await new Promise((resolve) => {
-        try { chrome.storage.local.get(["apiBaseUrl"], resolve); }
-        catch { resolve({}); }
-      });
-      const base = String(r0.apiBaseUrl || "").trim().replace(/\/$/, "") || "https://foxvize.info";
-      const res = await fetch(`${base}/api/captcha`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: pre }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return { ok: false, error: j.detail || ("OCR sunucu hatasi: " + res.status) };
-      }
-      const code = String(j.code || "").replace(/\D/g, "");
+      const t0 = performance.now();
+      const worker = await getTessWorker();
+      const { data } = await worker.recognize(pre);
+      const ms = Math.round(performance.now() - t0);
+      const raw = String(data?.text || "").trim();
+      const digits = raw.replace(/\D/g, "");
+      const code = digits.slice(0, 4);
       if (code.length < 3) {
-        return { ok: false, error: "OCR dusuk guven — " + (j.raw || "(bos)"), code, confidence: j.confidence };
+        return {
+          ok: false,
+          error: "OCR dusuk guven — okunan: '" + (raw.slice(0, 20) || "(bos)") + "'",
+          code,
+          confidence: Math.round(Number(data?.confidence || 0)),
+          ms,
+        };
       }
-      return { ok: true, code, confidence: j.confidence, raw: j.raw };
+      return {
+        ok: true,
+        code,
+        confidence: Math.round(Number(data?.confidence || 0)),
+        raw,
+        ms,
+      };
     } catch (e) {
-      return { ok: false, error: "OCR istegi basarisiz: " + String(e) };
+      return { ok: false, error: "OCR hatasi: " + (e && e.message ? e.message : String(e)) };
     }
   }
+
+  // Geriye uyumluluk icin eski ismi tut
+  const solveCaptchaViaServer = solveCaptchaLocal;
 
   function findSorgulaBtn() {
     return (
