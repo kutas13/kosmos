@@ -131,55 +131,21 @@
     }
   }
 
-  // ====== LOCAL TESSERACT.JS OCR ======
-  // Tesseract.js (tesseract.min.js) content_scripts sirasiyla onceden yuklenir.
-  // Worker'i sayfa acildiginda isin isin warmup yaparak ilk sorguda hiz kazaniriz.
+  // ====== OCR via BACKGROUND + OFFSCREEN ======
+  // Content script CSP/isolated-world sorunlarini onlemek icin OCR'yi background
+  // araciligiyla offscreen document'a delege ediyoruz.
 
-  let _tessWorkerPromise = null;
-
-  function _extUrl(p) {
-    try {
-      return chrome.runtime.getURL(p);
-    } catch {
-      return p;
-    }
-  }
-
-  async function getTessWorker() {
-    if (_tessWorkerPromise) return _tessWorkerPromise;
-    _tessWorkerPromise = (async () => {
-      if (typeof Tesseract === "undefined") {
-        throw new Error("Tesseract global yok (content_scripts yukleme sirasi?)");
-      }
-      const opts = {
-        workerPath: _extUrl("lib/tesseract/worker.min.js"),
-        corePath: _extUrl("lib/tesseract/tesseract-core-simd-lstm.wasm.js"),
-        langPath: _extUrl("lib/tessdata"),
-        // Logger'i sessize al
-        logger: () => {},
-        // Cache'i kapatmak yerine sessizce sakla (chrome-extension URL'inde cache API sorunlu olabilir)
-        cacheMethod: "none",
-        gzip: true,
-      };
-      const worker = await Tesseract.createWorker("eng", 1, opts);
-      // Sadece rakam; tek satir
-      await worker.setParameters({
-        tessedit_char_whitelist: "0123456789",
-        tessedit_pageseg_mode: "7",
-        classify_bln_numeric_mode: "1",
-      });
-      return worker;
-    })().catch((e) => {
-      _tessWorkerPromise = null; // hata olursa tekrar denenebilsin
-      throw e;
-    });
-    return _tessWorkerPromise;
-  }
-
-  // Sayfa yuklenince arkaplanda worker'i isit (ilk OCR <300ms olsun)
+  // Sayfa acildiginda arkaplanda warmup tetikle (ilk sorguda ~1s kazandirir)
   setTimeout(() => {
-    getTessWorker().catch((e) => console.warn("[idata] tesseract warmup hata:", e));
-  }, 500);
+    try {
+      chrome.runtime.sendMessage({ type: "OCR_WARMUP" }, () => {
+        // yanit onemsiz; hata olursa sessiz ge
+        void chrome.runtime.lastError;
+      });
+    } catch {
+      // extension context invalidated olabilir
+    }
+  }, 800);
 
   async function solveCaptchaLocal() {
     const img = findCaptchaImg();
@@ -195,29 +161,23 @@
     const pre = preprocessCaptchaToDataUrl(img) || img.src;
     if (!pre) return { ok: false, error: "On-isleme basarisiz" };
     try {
-      const t0 = performance.now();
-      const worker = await getTessWorker();
-      const { data } = await worker.recognize(pre);
-      const ms = Math.round(performance.now() - t0);
-      const raw = String(data?.text || "").trim();
-      const digits = raw.replace(/\D/g, "");
-      const code = digits.slice(0, 4);
-      if (code.length < 3) {
-        return {
-          ok: false,
-          error: "OCR dusuk guven — okunan: '" + (raw.slice(0, 20) || "(bos)") + "'",
-          code,
-          confidence: Math.round(Number(data?.confidence || 0)),
-          ms,
-        };
-      }
-      return {
-        ok: true,
-        code,
-        confidence: Math.round(Number(data?.confidence || 0)),
-        raw,
-        ms,
-      };
+      const res = await new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(
+            { type: "OCR_CAPTCHA", image: pre },
+            (r) => {
+              if (chrome.runtime.lastError) {
+                resolve({ ok: false, error: chrome.runtime.lastError.message });
+                return;
+              }
+              resolve(r || { ok: false, error: "Bos yanit" });
+            }
+          );
+        } catch (e) {
+          resolve({ ok: false, error: "Mesaj hatasi: " + String(e && e.message || e) });
+        }
+      });
+      return res;
     } catch (e) {
       return { ok: false, error: "OCR hatasi: " + (e && e.message ? e.message : String(e)) };
     }

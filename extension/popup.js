@@ -348,9 +348,28 @@ async function sendToIdataTab(type, payload) {
     setAlmMsg("Önce idata.com.tr başvuru takip sayfasını bu sekmede açın.", "err");
     return null;
   }
+  const send = () => chrome.tabs.sendMessage(tab.id, { type, payload });
   try {
-    return await chrome.tabs.sendMessage(tab.id, { type, payload });
+    return await send();
   } catch (e) {
+    // İçerik betiği yoksa (eklenti güncellendi ama sayfa yenilenmedi vs.) elle inject et
+    try {
+      if (chrome.scripting && chrome.scripting.executeScript) {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["idata-content.js"],
+        });
+        // Inject sonrasi biraz soluklan, sonra tekrar dene
+        await new Promise((r) => setTimeout(r, 150));
+        return await send();
+      }
+    } catch (e2) {
+      setAlmMsg(
+        "İçerik betiği yüklenemedi. Sayfayı yenileyin.\n" + String(e2 && e2.message || e2),
+        "err"
+      );
+      return null;
+    }
     setAlmMsg("İçerik betiği yüklenemedi. Sayfayı yenileyin.\n" + String(e), "err");
     return null;
   }
