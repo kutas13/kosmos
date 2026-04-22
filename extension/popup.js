@@ -478,6 +478,9 @@ async function runAlmFill(alsoClick) {
       setAlmMsg("Sonuç: beklemede", "warn");
     }
   } finally {
+    // Her sorgudan sonra CAPTCHA alanini sifirla: bir sonraki sorguda
+    // OCR bastan calissin (sayfadaki captcha da her sorguda degisiyor).
+    almCap.value = "";
     updateAlmIdState();
   }
 }
