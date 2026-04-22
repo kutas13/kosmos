@@ -120,29 +120,12 @@
       }
     }
 
-    // ISLEMDE (henuz cikmamis)
-    const islemdeHints = [
-      "basvuru dosyaniz ilgili",
-      "elcilik",
-      "konsolosluga gonderilmis",
-      "konsoloslu",
-      "islem sureci baslamistir",
-      "in bearbeitung",
-    ];
-    for (const h of islemdeHints) {
-      if (norm.includes(h)) {
-        return {
-          durum: "islemde",
-          mesaj: (areaText || bodyText)
-            .split("\n").map((s) => s.trim()).filter(Boolean)
-            .find((s) => /elcilik|konsoloslu|islem sureci|bearbeitung/i.test(s))
-            || "Başvuru dosyanız ilgili Elçilik/Konsolosluğa gönderilmiş, işlem süreci başlamıştır.",
-        };
-      }
-    }
-
-    // CIKMIS (hazir / teslim / cikti / abholung)
+    // CIKMIS once kontrol edilir (cunku islemi tamamlanan pasaport mesajinda
+    // "Elcilik/Konsoloslukta" ifadesi de gecer ve islemde hint'lerine carpar).
     const cikmisHints = [
+      "islemi tamamlanan pasaportunuz",
+      "idata ofisine gelmistir",
+      "ofisine gelmistir",
       "hazir",
       "teslim alinabilir",
       "teslime hazir",
@@ -161,8 +144,28 @@
           durum: "cikmis",
           mesaj: (areaText || bodyText)
             .split("\n").map((s) => s.trim()).filter(Boolean)
-            .find((s) => /hazir|teslim|abholung|ready|kargoya|kuryeye|cikti/i.test(s))
-            || "Pasaport hazır / teslim alınabilir.",
+            .find((s) => /islemi tamamlanan|ofisine gelmistir|hazir|teslim|abholung|ready|kargoya|kuryeye|çıktı/i.test(s))
+            || "Elçilik/Konsoloslukta işlemi tamamlanan pasaportunuz, başvuru yapılan iDATA ofisine gelmiştir.",
+        };
+      }
+    }
+
+    // ISLEMDE (henuz cikmamis) — daha spesifik ifadeler
+    const islemdeHints = [
+      "basvuru dosyaniz ilgili",
+      "konsolosluga gonderilmis",
+      "islem sureci baslamistir",
+      "islem sureci",
+      "in bearbeitung",
+    ];
+    for (const h of islemdeHints) {
+      if (norm.includes(h)) {
+        return {
+          durum: "islemde",
+          mesaj: (areaText || bodyText)
+            .split("\n").map((s) => s.trim()).filter(Boolean)
+            .find((s) => /basvuru dosyaniz|gönderilmiş|işlem süreci|bearbeitung/i.test(s))
+            || "Başvuru dosyanız ilgili Elçilik/Konsolosluğa gönderilmiş, işlem süreci başlamıştır.",
         };
       }
     }
