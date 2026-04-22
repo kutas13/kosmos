@@ -83,6 +83,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "OCR_CAPTCHA_MULTI" && msg.target !== "offscreen") {
+    (async () => {
+      try {
+        await ensureOffscreen();
+        const r = await chrome.runtime.sendMessage({
+          target: "offscreen",
+          type: "OCR_CAPTCHA_MULTI",
+          images: msg.images,
+          expectLen: msg.expectLen,
+        });
+        sendResponse(r || { ok: false, error: "Offscreen yanit vermedi" });
+      } catch (e) {
+        sendResponse({ ok: false, error: "BG relay hatasi: " + String(e && e.message || e) });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === "OCR_WARMUP" && msg.target !== "offscreen") {
     (async () => {
       try {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kosmos başvuru doldurucu",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr) + yerel tesseract.js ile anında CAPTCHA OCR (offscreen).",
   "permissions": ["storage", "activeTab", "offscreen", "scripting"],
   "background": {

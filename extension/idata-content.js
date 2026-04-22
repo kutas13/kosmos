@@ -81,54 +81,88 @@
     );
   }
 
-  /** Captcha gorseli icin on-isleme: grayscale + threshold + temel gurultu temizligi. */
-  function preprocessCaptchaToDataUrl(imgEl) {
+  /**
+   * Captcha gorseli icin on-isleme: 3x olcek + grayscale + threshold + gurultu temizligi.
+   * Tesseract kucuk goruntulerde zorlaniyor; 3x upscaling OCR dogrulugunu onemli
+   * olcude artiriyor.
+   */
+  function preprocessCaptchaToDataUrl(imgEl, opts) {
     try {
-      const w = imgEl.naturalWidth || imgEl.width;
-      const h = imgEl.naturalHeight || imgEl.height;
-      if (!w || !h) return imgEl.src || null;
+      const o = Object.assign({ scale: 3, thresh: 120, denoise: true }, opts || {});
+      const w0 = imgEl.naturalWidth || imgEl.width;
+      const h0 = imgEl.naturalHeight || imgEl.height;
+      if (!w0 || !h0) return imgEl.src || null;
+      const w = Math.round(w0 * o.scale);
+      const h = Math.round(h0 * o.scale);
+
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      // Beyaz zemin koy (kenarlari temiz olsun)
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
       ctx.drawImage(imgEl, 0, 0, w, h);
+
       const imageData = ctx.getImageData(0, 0, w, h);
       const d = imageData.data;
-      // 1) Gri tona cevir + siki esik: sadece koyu pikselleri (digit) birak
-      const THRESH = 110;
+
+      // 1) Grayscale + threshold (koyu -> siyah, diger -> beyaz)
       for (let i = 0; i < d.length; i += 4) {
         const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const v = lum < THRESH ? 0 : 255;
+        const v = lum < o.thresh ? 0 : 255;
         d[i] = d[i + 1] = d[i + 2] = v;
         d[i + 3] = 255;
       }
-      // 2) 3x3 komsu siyahi yoksa o pikseli beyazlat (tek piksel gurultuler)
-      const getBlk = (x, y) => {
-        if (x < 0 || y < 0 || x >= w || y >= h) return 0;
-        return d[(y * w + x) * 4] === 0 ? 1 : 0;
-      };
-      const out = new Uint8ClampedArray(d.length);
-      out.set(d);
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const idx = (y * w + x) * 4;
-          if (d[idx] !== 0) continue; // zaten beyaz
-          let n = 0;
-          n += getBlk(x - 1, y - 1) + getBlk(x, y - 1) + getBlk(x + 1, y - 1);
-          n += getBlk(x - 1, y) + getBlk(x + 1, y);
-          n += getBlk(x - 1, y + 1) + getBlk(x, y + 1) + getBlk(x + 1, y + 1);
-          if (n < 2) {
-            out[idx] = out[idx + 1] = out[idx + 2] = 255;
+
+      // 2) Opening (erode-1): tek piksel/kucuk gurultu temizle
+      if (o.denoise) {
+        const getBlk = (x, y) => {
+          if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+          return d[(y * w + x) * 4] === 0 ? 1 : 0;
+        };
+        const out = new Uint8ClampedArray(d.length);
+        out.set(d);
+        // Komsu siyah pikseli <2 olan izole siyahlari sil (erode)
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            if (d[idx] !== 0) continue;
+            let n = 0;
+            n += getBlk(x - 1, y - 1) + getBlk(x, y - 1) + getBlk(x + 1, y - 1);
+            n += getBlk(x - 1, y) + getBlk(x + 1, y);
+            n += getBlk(x - 1, y + 1) + getBlk(x, y + 1) + getBlk(x + 1, y + 1);
+            if (n < 2) {
+              out[idx] = out[idx + 1] = out[idx + 2] = 255;
+            }
           }
         }
+        for (let i = 0; i < d.length; i++) d[i] = out[i];
       }
-      for (let i = 0; i < d.length; i++) d[i] = out[i];
+
       ctx.putImageData(imageData, 0, 0);
       return canvas.toDataURL("image/png");
     } catch (e) {
       console.warn("[idata] preprocess hata:", e);
       try { return imgEl.src || null; } catch { return null; }
     }
+  }
+
+  /** Cesitli threshold ve olcek varyantlarinda bir dizi ureten yardimci. */
+  function buildCaptchaVariants(imgEl) {
+    const variants = [];
+    // Olcek 3x, orta esik - en iyi denge
+    const v1 = preprocessCaptchaToDataUrl(imgEl, { scale: 3, thresh: 120, denoise: true });
+    if (v1) variants.push(v1);
+    // Olcek 3x, kaliplar ince ise daha dusuk esik cizgileri yakalar
+    const v2 = preprocessCaptchaToDataUrl(imgEl, { scale: 3, thresh: 90, denoise: true });
+    if (v2 && v2 !== v1) variants.push(v2);
+    // Olcek 4x, daha yumusak (yuksek cozunurluk, basit threshold)
+    const v3 = preprocessCaptchaToDataUrl(imgEl, { scale: 4, thresh: 130, denoise: false });
+    if (v3) variants.push(v3);
+    return variants;
   }
 
   // ====== OCR via BACKGROUND + OFFSCREEN ======
@@ -158,13 +192,20 @@
         setTimeout(done, 1500);
       });
     }
-    const pre = preprocessCaptchaToDataUrl(img) || img.src;
-    if (!pre) return { ok: false, error: "On-isleme basarisiz" };
+    // Birden fazla on-isleme varyanti uret; offscreen hepsini ve tum PSM'leri
+    // deneyip en yuksek guvenli 4-haneli sonucu dondurur.
+    const variants = buildCaptchaVariants(img);
+    if (!variants.length) {
+      const fallback = img.src;
+      if (!fallback) return { ok: false, error: "On-isleme basarisiz" };
+      variants.push(fallback);
+    }
+
     try {
       const res = await new Promise((resolve) => {
         try {
           chrome.runtime.sendMessage(
-            { type: "OCR_CAPTCHA", image: pre },
+            { type: "OCR_CAPTCHA_MULTI", images: variants, expectLen: 4 },
             (r) => {
               if (chrome.runtime.lastError) {
                 resolve({ ok: false, error: chrome.runtime.lastError.message });
@@ -197,13 +238,23 @@
   }
 
   function findResultArea() {
-    return (
-      q(".show_result_area_follow") ||
-      q("[class*='show_result_area']") ||
-      q(".alert-info") ||
-      q(".alert-danger") ||
-      q(".alert-success")
-    );
+    // Sadece SORGU sonucunun yazildigi kutu. Genel sayfa bildirimleri
+    // (ornek: "Randevu sisteminin dogru ve verimli sekilde kullanilmasini...")
+    // icindeki kelimeler ("haziran" gibi) false-positive uretmesin diye
+    // body'ye asla bakmiyoruz.
+    const sels = [
+      ".show_result_area_follow",
+      "[class*='show_result_area']",
+      "#show_result_area_follow",
+    ];
+    for (const s of sels) {
+      const el = document.querySelector(s);
+      if (!el) continue;
+      const txt = (el.innerText || el.textContent || "").trim();
+      // Gercekten gorunen ve anlamli icerik varsa dondur
+      if (txt.length >= 5 && el.offsetParent !== null) return el;
+    }
+    return null;
   }
 
   function normTr(s) {
@@ -219,85 +270,82 @@
       .trim();
   }
 
-  /** Sonuc metnini ve durumunu dondurur. */
+  /** Sonuc metnini ve durumunu dondurur. SADECE sorgu sonuc kutusundan okur. */
   function analyzeResult() {
     const area = findResultArea();
-    const areaText = area ? (area.innerText || area.textContent || "") : "";
-    const bodyText = document.body ? (document.body.innerText || "") : "";
-    const hay = areaText + "\n" + bodyText;
-    const norm = normTr(hay);
+    if (!area) return null;
+    const areaText = (area.innerText || area.textContent || "").trim();
+    if (!areaText) return null;
+    const norm = normTr(areaText);
+
+    const pickLine = (rx, fallback) => {
+      const line = areaText
+        .split("\n").map((s) => s.trim()).filter(Boolean)
+        .find((s) => rx.test(s));
+      return line || fallback;
+    };
 
     // HATA
-    const hataHints = [
-      "sistemimizde boyle bir pasaport tanimli degil",
-      "boyle bir pasaport tanimli degil",
-      "bilgilerinizi kontrol edin",
-      "kein passport",
-      "nicht gefunden",
-    ];
-    for (const h of hataHints) {
-      if (norm.includes(h)) {
-        return {
-          durum: "hata",
-          mesaj: (areaText || bodyText)
-            .split("\n").map((s) => s.trim()).filter(Boolean)
-            .find((s) => /sistemimizde|kontrol edin|nicht|kein/i.test(s))
-            || "Sistemimizde böyle bir pasaport tanımlı değil.",
-        };
-      }
+    if (
+      /sistemimizde b[oö]yle bir pasaport tanimli degil/.test(norm) ||
+      /b[oö]yle bir pasaport tanimli degil/.test(norm) ||
+      /bilgilerinizi kontrol edin/.test(norm) ||
+      /kein pass(port)?/.test(norm) ||
+      /nicht gefunden/.test(norm)
+    ) {
+      return {
+        durum: "hata",
+        mesaj: pickLine(
+          /sistemimizde|kontrol edin|nicht|kein/i,
+          "Sistemimizde böyle bir pasaport tanımlı değil."
+        ),
+      };
     }
 
-    // CIKMIS once kontrol edilir (cunku islemi tamamlanan pasaport mesajinda
-    // "Elcilik/Konsoloslukta" ifadesi de gecer ve islemde hint'lerine carpar).
-    const cikmisHints = [
-      "islemi tamamlanan pasaportunuz",
-      "idata ofisine gelmistir",
-      "ofisine gelmistir",
-      "hazir",
-      "teslim alinabilir",
-      "teslime hazir",
-      "abholbereit",
-      "zur abholung",
-      "ready for pickup",
-      "ready to be collected",
-      "pasaport merkezden",
-      "kargoya verildi",
-      "kuryeye teslim",
-      "cikti",
-    ];
-    for (const h of cikmisHints) {
-      if (norm.includes(h)) {
-        return {
-          durum: "cikmis",
-          mesaj: (areaText || bodyText)
-            .split("\n").map((s) => s.trim()).filter(Boolean)
-            .find((s) => /islemi tamamlanan|ofisine gelmistir|hazir|teslim|abholung|ready|kargoya|kuryeye|çıktı/i.test(s))
-            || "Elçilik/Konsoloslukta işlemi tamamlanan pasaportunuz, başvuru yapılan iDATA ofisine gelmiştir.",
-        };
-      }
+    // CIKMIS — cok spesifik ifadeler. "hazir" tek basina YETERLI DEGIL
+    // (haziran ayi adina false-match olur). Kelime sinirli veya birlesik eslesme.
+    const cikmisRx = new RegExp(
+      [
+        "islemi tamamlanan pasaportunuz",
+        "idata ofisine gelmistir",
+        "ofisine gelmistir",
+        "pasaport(?:unuz)?\\s+hazir",
+        "hazirdir",
+        "teslim(e|\\s)alin",
+        "teslime hazir",
+        "abholbereit",
+        "zur abholung",
+        "ready for pickup",
+        "ready to be collected",
+        "kargoya verildi",
+        "kuryeye teslim",
+      ].join("|"),
+      "i"
+    );
+    if (cikmisRx.test(norm)) {
+      return {
+        durum: "cikmis",
+        mesaj: pickLine(
+          /islemi tamamlanan|ofisine gelmiştir|hazır|teslim|abholung|ready|kargoya|kuryeye/i,
+          "Elçilik/Konsoloslukta işlemi tamamlanan pasaportunuz, başvuru yapılan iDATA ofisine gelmiştir."
+        ),
+      };
     }
 
-    // ISLEMDE (henuz cikmamis) — daha spesifik ifadeler
-    const islemdeHints = [
-      "basvuru dosyaniz ilgili",
-      "konsolosluga gonderilmis",
-      "islem sureci baslamistir",
-      "islem sureci",
-      "in bearbeitung",
-    ];
-    for (const h of islemdeHints) {
-      if (norm.includes(h)) {
-        return {
-          durum: "islemde",
-          mesaj: (areaText || bodyText)
-            .split("\n").map((s) => s.trim()).filter(Boolean)
-            .find((s) => /basvuru dosyaniz|gönderilmiş|işlem süreci|bearbeitung/i.test(s))
-            || "Başvuru dosyanız ilgili Elçilik/Konsolosluğa gönderilmiş, işlem süreci başlamıştır.",
-        };
-      }
+    // ISLEMDE
+    const islemdeRx =
+      /basvuru dosyaniz ilgili|konsolosluga (gonderilmis|gonderildi)|islem sureci|in bearbeitung/i;
+    if (islemdeRx.test(norm)) {
+      return {
+        durum: "islemde",
+        mesaj: pickLine(
+          /başvuru dosyanız|gönderil|işlem süreci|bearbeitung/i,
+          "Başvuru dosyanız ilgili Elçilik/Konsolosluğa gönderilmiş, işlem süreci başlamıştır."
+        ),
+      };
     }
 
-    return null; // henuz belirlenemedi
+    return null;
   }
 
   async function getApiBase() {
