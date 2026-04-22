@@ -194,6 +194,7 @@ const almAd = document.getElementById("alm_ad_soyad");
 const almPas = document.getElementById("alm_pasaport_no");
 const almBrk = document.getElementById("alm_barkod_no");
 const almCap = document.getElementById("alm_captcha");
+const btnAlmSolveCap = document.getElementById("btnAlmSolveCap");
 
 function setAlmMsg(text, kind) {
   msgAlmEl.textContent = text || "";
@@ -371,13 +372,14 @@ async function runAlmFill(alsoClick) {
     return;
   }
   const captcha = (almCap.value || "").trim();
-  const payload = { ...almPayloadFromForm(), id: idNum, captcha };
+  const payload = {
+    ...almPayloadFromForm(),
+    id: idNum,
+    captcha,
+    autoSolveCaptcha: !captcha, // bos ise OCR denesin
+  };
   if (!payload.pasaport_no || !payload.barkod_no) {
     setAlmMsg("Pasaport ve Barkod alanlari dolu olmalidir. Önce Yükle butonuna basın.", "err");
-    return;
-  }
-  if (alsoClick && !captcha) {
-    setAlmMsg("CAPTCHA kodunu girin (sayfadaki 4 haneli doğrulama kodu).", "err");
     return;
   }
   chrome.storage.local.set({ lastAlmFill: almPayloadFromForm(), lastAlmanyaId: idNum });
@@ -400,13 +402,38 @@ async function runAlmFill(alsoClick) {
       return;
     }
 
-    if (!alsoClick) {
-      setAlmMsg("Alanlar dolduruldu. CAPTCHA'yı girip Sorgula butonuna siz basın.", "ok");
+    // OCR sonucunu forma yaz (kullanici gorsun)
+    if (res.ocr && res.ocr.ok && res.ocr.code && !almCap.value) {
+      almCap.value = res.ocr.code;
+    }
+
+    // Eger OCR basarisiz olduysa ve captcha halen bossa, kullaniciyi uyar
+    const haveCaptcha = !!(almCap.value && almCap.value.trim().length >= 3);
+    if (alsoClick && !haveCaptcha) {
+      setAlmMsg(
+        (res.ocr && res.ocr.error
+          ? `CAPTCHA OCR başarısız: ${res.ocr.error}. `
+          : "CAPTCHA çözülemedi. ") +
+          "Sayfadaki kodu manuel girip tekrar deneyin.",
+        "err"
+      );
       return;
     }
 
-    // Sorgula'ya tikla ve sonucu bekle
-    setAlmMsg("Sorgulanıyor…", "ok");
+    if (!alsoClick) {
+      const okMsg = res.ocr && res.ocr.ok
+        ? `Alanlar dolduruldu (CAPTCHA OCR: ${res.ocr.code}, güven ${res.ocr.confidence || "?"}). Sorgula'ya siz basın.`
+        : "Alanlar dolduruldu. CAPTCHA'yı girip Sorgula'ya siz basın.";
+      setAlmMsg(okMsg, "ok");
+      return;
+    }
+
+    setAlmMsg(
+      res.ocr && res.ocr.ok
+        ? `Sorgulanıyor… (OCR: ${res.ocr.code})`
+        : "Sorgulanıyor…",
+      "ok"
+    );
     const clickRes = await sendToIdataTab("ALMANYA_CLICK_SORGULA", {});
     if (!clickRes || !clickRes.ok) {
       setAlmMsg((clickRes && clickRes.error) || "Sorgula butonu çalıştırılamadı.", "err");
@@ -444,3 +471,27 @@ document.getElementById("fAlm").addEventListener("submit", async (e) => {
 btnAlmFillOnly.addEventListener("click", async () => {
   await runAlmFill(false);
 });
+
+if (btnAlmSolveCap) {
+  btnAlmSolveCap.addEventListener("click", async () => {
+    btnAlmSolveCap.disabled = true;
+    const oldTxt = btnAlmSolveCap.textContent;
+    btnAlmSolveCap.textContent = "…";
+    try {
+      setAlmMsg("CAPTCHA OCR ile çözülüyor…", "ok");
+      const r = await sendToIdataTab("ALMANYA_SOLVE_CAPTCHA", {});
+      if (!r) return;
+      if (r.ok && r.code) {
+        almCap.value = r.code;
+        setAlmMsg(`OCR sonucu: ${r.code} (güven ${r.confidence || "?"}).`, "ok");
+      } else {
+        setAlmMsg("OCR başarısız: " + (r.error || "bilinmeyen hata"), "err");
+      }
+    } catch (e) {
+      setAlmMsg("OCR hatası: " + String(e), "err");
+    } finally {
+      btnAlmSolveCap.textContent = oldTxt;
+      btnAlmSolveCap.disabled = false;
+    }
+  });
+}

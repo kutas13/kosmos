@@ -279,6 +279,28 @@
       margin-top: 4px;
       line-height: 1.4;
     }
+    .captcha-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .captcha-row input { flex: 1; min-width: 0; }
+    .captcha-row button {
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #0a0a0a;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .captcha-row button:hover { filter: brightness(1.1); }
+    .captcha-row button:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -373,12 +395,15 @@
           </div>
           <div class="field">
             <label for="alm_captcha">Doğrulama Kodu (CAPTCHA)</label>
-            <input id="alm_captcha" name="alm_captcha" maxlength="8" autocomplete="off" placeholder="Sayfadaki 4 haneli kodu yazın" style="text-transform: uppercase;" />
+            <div class="captcha-row">
+              <input id="alm_captcha" name="alm_captcha" maxlength="8" autocomplete="off" placeholder="Boş bırak → OCR otomatik çözsün" style="text-transform: uppercase;" />
+              <button type="button" id="btnAlmSolveCap" title="Sayfadaki CAPTCHA'yı OCR ile çöz">OCR</button>
+            </div>
           </div>
           <button type="submit" class="btn-primary" id="btnAlmSorgula">Doldur + Sorgula</button>
         </form>
         <button type="button" class="btn-ghost" id="btnAlmFillOnly">Sadece Doldur (Sorgula bana birak)</button>
-        <p class="alm-info">idata.com.tr/de/tr/p/basvuru-takip-de sayfasında olun. CAPTCHA kodunu üstteki alana yazın — eklenti sayfaya aktarır ve Sorgula'ya otomatik tıklar.</p>
+        <p class="alm-info">CAPTCHA alanını boş bırakırsanız eklenti sayfadaki görseli otomatik OCR ile çözmeye çalışır (%70–90 doğruluk). Yanlış olursa elle düzeltip Sorgula'ya basın.</p>
       </div>
 
       <div id="msgAlm"></div>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Kosmos başvuru doldurucu",
-  "version": "1.4.0",
-  "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr); foxvize.info API ile ID'den çeker.",
+  "version": "1.5.0",
+  "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr) + otomatik CAPTCHA OCR.",
   "permissions": ["storage", "activeTab"],
   "background": {
     "service_worker": "background.js"

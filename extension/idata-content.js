@@ -59,6 +59,117 @@
     );
   }
 
+  function findCaptchaImg() {
+    return (
+      q("img.captcha-img") ||
+      q('img[src^="data:image/"][src*="captcha" i]') ||
+      q('img[alt*="captcha" i]') ||
+      q('img[alt*="CAPTCHA" i]') ||
+      // Genel: captcha input'unun yakinindaki data-url'li gorsel
+      (function () {
+        const inp = findCaptchaInput();
+        if (!inp) return null;
+        let node = inp;
+        for (let i = 0; i < 6 && node; i++) {
+          node = node.parentElement;
+          if (!node) break;
+          const im = node.querySelector('img[src^="data:image/"]');
+          if (im) return im;
+        }
+        return null;
+      })()
+    );
+  }
+
+  /** Captcha gorseli icin on-isleme: grayscale + threshold + temel gurultu temizligi. */
+  function preprocessCaptchaToDataUrl(imgEl) {
+    try {
+      const w = imgEl.naturalWidth || imgEl.width;
+      const h = imgEl.naturalHeight || imgEl.height;
+      if (!w || !h) return imgEl.src || null;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(imgEl, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+      // 1) Gri tona cevir + siki esik: sadece koyu pikselleri (digit) birak
+      const THRESH = 110;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const v = lum < THRESH ? 0 : 255;
+        d[i] = d[i + 1] = d[i + 2] = v;
+        d[i + 3] = 255;
+      }
+      // 2) 3x3 komsu siyahi yoksa o pikseli beyazlat (tek piksel gurultuler)
+      const getBlk = (x, y) => {
+        if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+        return d[(y * w + x) * 4] === 0 ? 1 : 0;
+      };
+      const out = new Uint8ClampedArray(d.length);
+      out.set(d);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          if (d[idx] !== 0) continue; // zaten beyaz
+          let n = 0;
+          n += getBlk(x - 1, y - 1) + getBlk(x, y - 1) + getBlk(x + 1, y - 1);
+          n += getBlk(x - 1, y) + getBlk(x + 1, y);
+          n += getBlk(x - 1, y + 1) + getBlk(x, y + 1) + getBlk(x + 1, y + 1);
+          if (n < 2) {
+            out[idx] = out[idx + 1] = out[idx + 2] = 255;
+          }
+        }
+      }
+      for (let i = 0; i < d.length; i++) d[i] = out[i];
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      console.warn("[idata] preprocess hata:", e);
+      try { return imgEl.src || null; } catch { return null; }
+    }
+  }
+
+  async function solveCaptchaViaServer() {
+    const img = findCaptchaImg();
+    if (!img) return { ok: false, error: "CAPTCHA gorseli bulunamadi" };
+    // Yuklenmesini bekle (bazi sayfalar img'yi gec ceker)
+    if (!img.complete || !img.naturalWidth) {
+      await new Promise((r) => {
+        const done = () => r();
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+        setTimeout(done, 1500);
+      });
+    }
+    const pre = preprocessCaptchaToDataUrl(img) || img.src;
+    if (!pre) return { ok: false, error: "On-isleme basarisiz" };
+    try {
+      const r0 = await new Promise((resolve) => {
+        try { chrome.storage.local.get(["apiBaseUrl"], resolve); }
+        catch { resolve({}); }
+      });
+      const base = String(r0.apiBaseUrl || "").trim().replace(/\/$/, "") || "https://foxvize.info";
+      const res = await fetch(`${base}/api/captcha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: pre }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, error: j.detail || ("OCR sunucu hatasi: " + res.status) };
+      }
+      const code = String(j.code || "").replace(/\D/g, "");
+      if (code.length < 3) {
+        return { ok: false, error: "OCR dusuk guven — " + (j.raw || "(bos)"), code, confidence: j.confidence };
+      }
+      return { ok: true, code, confidence: j.confidence, raw: j.raw };
+    } catch (e) {
+      return { ok: false, error: "OCR istegi basarisiz: " + String(e) };
+    }
+  }
+
   function findSorgulaBtn() {
     return (
       q("#follow_app_action_button") ||
@@ -305,27 +416,53 @@
 
     if (msg.type === "ALMANYA_FILL") {
       const data = msg.payload || {};
-      try {
-        // Yeni sorgu basliyor — bayraklari sifirla
-        ciktiReported = false;
-        lastAnalyzed = null;
+      (async () => {
+        try {
+          ciktiReported = false;
+          lastAnalyzed = null;
 
-        const res = fillForm(data);
-        if (data.id) {
-          chrome.storage.local.set({ [ACTIVE_KEY]: Number(data.id) });
+          // Eger captcha bos ve autoSolve istendiyse OCR dene
+          let ocr = null;
+          if (!data.captcha && data.autoSolveCaptcha !== false) {
+            ocr = await solveCaptchaViaServer();
+            if (ocr && ocr.ok && ocr.code) {
+              data.captcha = ocr.code;
+            }
+          }
+
+          const res = fillForm(data);
+          if (data.id) {
+            chrome.storage.local.set({ [ACTIVE_KEY]: Number(data.id) });
+          }
+          const hasPas = !!findPassportInput();
+          const hasBrk = !!findBarcodeInput();
+          sendResponse({
+            ok: hasPas && hasBrk,
+            filled: res,
+            foundPassport: hasPas,
+            foundBarcode: hasBrk,
+            foundCaptcha: !!findCaptchaInput(),
+            ocr: ocr || undefined,
+          });
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
         }
-        const hasPas = !!findPassportInput();
-        const hasBrk = !!findBarcodeInput();
-        sendResponse({
-          ok: hasPas && hasBrk,
-          filled: res,
-          foundPassport: hasPas,
-          foundBarcode: hasBrk,
-          foundCaptcha: !!findCaptchaInput(),
-        });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
+      })();
+      return true;
+    }
+
+    if (msg.type === "ALMANYA_SOLVE_CAPTCHA") {
+      solveCaptchaViaServer().then((r) => {
+        try {
+          if (r && r.ok && r.code) {
+            const cap = findCaptchaInput();
+            if (cap) setNativeValue(cap, r.code);
+          }
+          sendResponse(r);
+        } catch (e) {
+          sendResponse({ ok: false, error: String(e) });
+        }
+      });
       return true;
     }
 
