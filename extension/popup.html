@@ -211,6 +211,62 @@
       padding: 0 0 8px;
       letter-spacing: 0.03em;
     }
+
+    /* Tabs (Yunan / Almanya) */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .tab-btn:hover { color: var(--text); border-color: var(--accent); }
+    .tab-btn.active.tab-yunan {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 2px 12px rgba(99,155,255,0.25);
+    }
+    .tab-btn.active.tab-almanya {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: #0a0a0a;
+      border-color: transparent;
+      box-shadow: 0 2px 12px rgba(251,191,36,0.3);
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Almanya özel */
+    .alm-warn {
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(251,191,36,0.08);
+      border: 1px solid rgba(251,191,36,0.3);
+      color: #fbbf24;
+      font-size: 11px;
+      line-height: 1.4;
+      display: none;
+    }
+    .alm-warn.on { display: block; }
+    .alm-info {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -225,46 +281,93 @@
     </a>
   </div>
 
+  <div class="tabs">
+    <button type="button" class="tab-btn tab-yunan active" data-tab="yunan">Yunan</button>
+    <button type="button" class="tab-btn tab-almanya" data-tab="almanya">Almanya</button>
+  </div>
+
   <div class="content">
 
-    <div class="card">
-      <div class="card-title">Müşteri Yükle</div>
-      <p class="desc">Sitede kaydettiğiniz müşteri ID'sini yazın veya kayıt sonrası otomatik gelir.</p>
-      <div class="load-row">
-        <input id="musteri_id" name="musteri_id" type="number" min="1" max="999" placeholder="1–999" />
-        <button type="button" id="btnLoad">Yükle</button>
+    <!-- ── YUNAN (Kosmos) ── -->
+    <div class="tab-pane active" id="pane-yunan">
+      <div class="card">
+        <div class="card-title">Müşteri Yükle</div>
+        <p class="desc">Sitede kaydettiğiniz müşteri ID'sini yazın veya kayıt sonrası otomatik gelir.</p>
+        <div class="load-row">
+          <input id="musteri_id" name="musteri_id" type="number" min="1" max="999" placeholder="1–999" />
+          <button type="button" id="btnLoad">Yükle</button>
+        </div>
       </div>
+
+      <div class="card">
+        <div class="card-title">Müşteri Bilgileri</div>
+        <form id="f">
+          <div class="field">
+            <label for="ad">Ad</label>
+            <input id="ad" name="ad" autocomplete="given-name" required />
+          </div>
+          <div class="field">
+            <label for="soyad">Soyad</label>
+            <input id="soyad" name="soyad" autocomplete="family-name" required />
+          </div>
+          <div class="field">
+            <label for="tc">T.C. Kimlik</label>
+            <input id="tc" name="tc" inputmode="numeric" maxlength="11" pattern="\d{11}" required />
+          </div>
+          <div class="field">
+            <label for="dogum_tarihi">Doğum Tarihi</label>
+            <input id="dogum_tarihi" name="dogum_tarihi" placeholder="GG.AA.YYYY" required />
+          </div>
+          <div class="field">
+            <label for="telefon">Telefon</label>
+            <input id="telefon" name="telefon" type="tel" autocomplete="tel" placeholder="05xx..." />
+          </div>
+          <button type="submit" class="btn-primary" id="btnWizard">Sihirbazi Baslat (8 Adim)</button>
+        </form>
+        <button type="button" class="btn-ghost" id="btnStep1">Yalnizca 1. Sayfayi Doldur</button>
+      </div>
+
+      <div id="msg"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Müşteri Bilgileri</div>
-      <form id="f">
-        <div class="field">
-          <label for="ad">Ad</label>
-          <input id="ad" name="ad" autocomplete="given-name" required />
+    <!-- ── ALMANYA (idata.com.tr) ── -->
+    <div class="tab-pane" id="pane-almanya">
+      <div class="card">
+        <div class="card-title">Almanya Pasaport Sorgula</div>
+        <p class="desc">Siteye kaydettiğiniz Almanya ID'sini yazın, pasaport ve barkod bilgisi idata.com.tr sayfasına otomatik doldurulsun. CAPTCHA'yı elle girin ve Sorgula butonuna basın.</p>
+        <div class="load-row">
+          <input id="alm_id" name="alm_id" type="number" min="1" max="999" placeholder="1–999 (Almanya ID)" />
+          <button type="button" id="btnAlmLoad">Yükle</button>
         </div>
-        <div class="field">
-          <label for="soyad">Soyad</label>
-          <input id="soyad" name="soyad" autocomplete="family-name" required />
+        <div class="alm-warn" id="almWarn">
+          Bu ID için pasaport zaten <strong>ÇIKTI</strong> olarak işaretlenmiş. Tekrar sorgulanamaz.
         </div>
-        <div class="field">
-          <label for="tc">T.C. Kimlik</label>
-          <input id="tc" name="tc" inputmode="numeric" maxlength="11" pattern="\d{11}" required />
-        </div>
-        <div class="field">
-          <label for="dogum_tarihi">Doğum Tarihi</label>
-          <input id="dogum_tarihi" name="dogum_tarihi" placeholder="GG.AA.YYYY" required />
-        </div>
-        <div class="field">
-          <label for="telefon">Telefon</label>
-          <input id="telefon" name="telefon" type="tel" autocomplete="tel" placeholder="05xx..." />
-        </div>
-        <button type="submit" class="btn-primary" id="btnWizard">Sihirbazi Baslat (8 Adim)</button>
-      </form>
-      <button type="button" class="btn-ghost" id="btnStep1">Yalnizca 1. Sayfayi Doldur</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Almanya Pasaport Bilgileri</div>
+        <form id="fAlm">
+          <div class="field">
+            <label for="alm_ad_soyad">İsim Soyisim</label>
+            <input id="alm_ad_soyad" name="alm_ad_soyad" required />
+          </div>
+          <div class="field">
+            <label for="alm_pasaport_no">Pasaport No</label>
+            <input id="alm_pasaport_no" name="alm_pasaport_no" required maxlength="20" />
+          </div>
+          <div class="field">
+            <label for="alm_barkod_no">Barkod No</label>
+            <input id="alm_barkod_no" name="alm_barkod_no" required maxlength="20" />
+          </div>
+          <button type="submit" class="btn-primary" id="btnAlmSorgula">Sayfayi Doldur + Sorgula</button>
+        </form>
+        <button type="button" class="btn-ghost" id="btnAlmFillOnly">Sadece Doldur (Sorgula bana birak)</button>
+        <p class="alm-info">idata.com.tr/de/tr/p/basvuru-takip-de sayfasında olduğunuzdan emin olun. CAPTCHA kodunu elle girmeniz gerekir.</p>
+      </div>
+
+      <div id="msgAlm"></div>
     </div>
 
-    <div id="msg"></div>
   </div>
 
   <div class="footer-line">FoxVize v1.3</div>

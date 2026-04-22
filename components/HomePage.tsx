@@ -11,6 +11,15 @@ type Musteri = {
   telefon: string;
 };
 
+type AlmanyaKayit = {
+  id: number;
+  ad_soyad: string;
+  pasaport_no: string;
+  barkod_no: string;
+  cikti: boolean;
+  cikti_at: string | null;
+};
+
 function formatDogumInput(raw: string) {
   let v = raw.replace(/\D/g, "");
   if (v.length > 8) v = v.slice(0, 8);
@@ -54,6 +63,22 @@ export default function HomePage() {
   const isChild = dogum.length === 10 && (calcAge(dogum) ?? 99) < 12;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Almanya Pasaport Takip
+  const [almAd, setAlmAd] = useState("");
+  const [almPasaport, setAlmPasaport] = useState("");
+  const [almBarkod, setAlmBarkod] = useState("");
+  const [almRows, setAlmRows] = useState<AlmanyaKayit[]>([]);
+  const [almSearch, setAlmSearch] = useState("");
+  const [almEditingId, setAlmEditingId] = useState<number | null>(null);
+  const [almBtnLabel, setAlmBtnLabel] = useState("Kaydet ve ID Al");
+  const [almShowCancel, setAlmShowCancel] = useState(false);
+  const [almSubmitting, setAlmSubmitting] = useState(false);
+  const [almStatusText, setAlmStatusText] = useState("");
+  const [almStatusKind, setAlmStatusKind] = useState<"" | "err" | "ok" | "warn">("");
+  const [almShowIdBox, setAlmShowIdBox] = useState(false);
+  const [almNewId, setAlmNewId] = useState("—");
+  const almSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const refreshList = useCallback(async (q: string) => {
     try {
       const qs = q ? `?q=${encodeURIComponent(q)}` : "";
@@ -66,9 +91,22 @@ export default function HomePage() {
     }
   }, []);
 
+  const refreshAlmanyaList = useCallback(async (q: string) => {
+    try {
+      const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+      const r = await fetch(`/api/almanya${qs}`);
+      const j = await r.json();
+      const list = (j.kayitlar || []) as AlmanyaKayit[];
+      setAlmRows(list);
+    } catch {
+      setAlmRows([]);
+    }
+  }, []);
+
   useEffect(() => {
     refreshList("");
-  }, [refreshList]);
+    refreshAlmanyaList("");
+  }, [refreshList, refreshAlmanyaList]);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -77,6 +115,14 @@ export default function HomePage() {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
   }, [search, refreshList]);
+
+  useEffect(() => {
+    if (almSearchTimer.current) clearTimeout(almSearchTimer.current);
+    almSearchTimer.current = setTimeout(() => refreshAlmanyaList(almSearch.trim()), 300);
+    return () => {
+      if (almSearchTimer.current) clearTimeout(almSearchTimer.current);
+    };
+  }, [almSearch, refreshAlmanyaList]);
 
   function clearForm() {
     setAd("");
@@ -163,10 +209,8 @@ export default function HomePage() {
       setNewId(savedId);
       setShowIdBox(true);
 
-      // Panoya kopyala
       try { await navigator.clipboard.writeText(savedId); } catch { /* */ }
 
-      // Eklentiye otomatik aktar (foxvize-bridge.js content script dinler)
       try {
         window.postMessage(
           { type: "FOXVIZE_MUSTERI_SAVED", payload: j },
@@ -189,7 +233,111 @@ export default function HomePage() {
     }
   }
 
+  // ── ALMANYA ──
+  function clearAlmForm() {
+    setAlmAd("");
+    setAlmPasaport("");
+    setAlmBarkod("");
+    setAlmEditingId(null);
+    setAlmBtnLabel("Kaydet ve ID Al");
+    setAlmShowCancel(false);
+  }
+
+  function cancelAlmEdit() {
+    clearAlmForm();
+    setAlmStatusText("");
+    setAlmStatusKind("");
+  }
+
+  function editAlmanya(id: number) {
+    const m = almRows.find((r) => r.id === id);
+    if (!m) return;
+    setAlmAd(m.ad_soyad);
+    setAlmPasaport(m.pasaport_no);
+    setAlmBarkod(m.barkod_no);
+    setAlmEditingId(id);
+    setAlmBtnLabel(`#${id} Güncelle`);
+    setAlmShowCancel(true);
+    setAlmStatusText(`#${id} düzenleniyor…`);
+    setAlmStatusKind("warn");
+  }
+
+  async function deleteAlmanya(id: number) {
+    if (!confirm(`Almanya kaydı #${id} silinsin mi?`)) return;
+    try {
+      const r = await fetch(`/api/almanya/${id}`, { method: "DELETE" });
+      if (!r.ok) {
+        alert("Silinemedi");
+        return;
+      }
+      if (almEditingId === id) clearAlmForm();
+      await refreshAlmanyaList(almSearch.trim());
+    } catch {
+      alert("Hata");
+    }
+  }
+
+  async function onAlmSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setAlmStatusText("");
+    setAlmStatusKind("");
+    setAlmSubmitting(true);
+    const body = {
+      ad_soyad: almAd.trim(),
+      pasaport_no: almPasaport.trim(),
+      barkod_no: almBarkod.trim(),
+    };
+    try {
+      const isEdit = almEditingId !== null;
+      const url = isEdit ? `/api/almanya/${almEditingId}` : "/api/almanya";
+      const method = isEdit ? "PUT" : "POST";
+      const r = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setAlmStatusKind(r.status === 409 ? "warn" : "err");
+        const d = j.detail;
+        setAlmStatusText(
+          Array.isArray(d)
+            ? d.map((x: { msg?: string }) => x.msg || JSON.stringify(x)).join(" · ")
+            : d || r.statusText || "Hata"
+        );
+        return;
+      }
+      const savedId = String(j.id);
+      setAlmStatusKind("ok");
+      setAlmNewId(savedId);
+      setAlmShowIdBox(true);
+
+      try { await navigator.clipboard.writeText(savedId); } catch { /* */ }
+
+      try {
+        window.postMessage(
+          { type: "FOXVIZE_ALMANYA_SAVED", payload: j },
+          "*"
+        );
+      } catch { /* */ }
+
+      setAlmStatusText(
+        isEdit
+          ? `#${savedId} güncellendi.`
+          : `Kaydedildi — ID #${savedId} panoya kopyalandı.`
+      );
+      clearAlmForm();
+      await refreshAlmanyaList(almSearch.trim());
+    } catch (err) {
+      setAlmStatusKind("err");
+      setAlmStatusText(String(err));
+    } finally {
+      setAlmSubmitting(false);
+    }
+  }
+
   const displayRows = [...rows].reverse();
+  const displayAlmRows = [...almRows].reverse();
 
   return (
     <>
@@ -200,6 +348,7 @@ export default function HomePage() {
         <div className="nav-links">
           <a href="#form-section">Kayıt</a>
           <a href="#list-section">Müşteriler</a>
+          <a href="#almanya-section">Almanya Pasaport</a>
           <a href="#download-section">Eklenti</a>
         </div>
       </nav>
@@ -209,8 +358,9 @@ export default function HomePage() {
           <div className="hero-text">
             <h2>Chrome Eklentisini İndirin</h2>
             <p>
-              Kosmos başvuru formlarını otomatik dolduran Chrome eklentisini indirin. Müşteri
-              bilgilerini buradan kaydedin; eklentide API adresinizi ve müşteri ID’sini kullanın.
+              Kosmos başvuru formlarını ve Almanya pasaport takip (idata.com.tr) sorgularını
+              otomatik dolduran Chrome eklentisini indirin. Eklentide üstteki sekmeden
+              <strong> Yunan</strong> ya da <strong>Almanya</strong> modunu seçebilirsiniz.
             </p>
           </div>
           <a
@@ -225,12 +375,12 @@ export default function HomePage() {
           </a>
         </section>
 
-        <div className="grid">
+        <div className="grid grid-3">
           <section className="card" id="form-section">
-            <h3>Müşteri Kaydı</h3>
+            <h3>Yunan — Müşteri Kaydı</h3>
             <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.75rem", lineHeight: 1.45 }}>
               Kaydettiğinizde size <strong>1–999</strong> arası rastgele ve benzersiz bir müşteri numarası verilir
-              (en fazla 999 kayıt). Aynı anda birden fazla kayıt olsa bile numaralar birbirine karışmaz.
+              (en fazla 999 kayıt).
             </p>
             <form onSubmit={onSubmit}>
               <div className="field">
@@ -351,6 +501,113 @@ export default function HomePage() {
                           type="button"
                           className="act-btn act-del"
                           onClick={() => deleteMusteri(m.id)}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          </section>
+
+          <section className="card card-almanya" id="almanya-section">
+            <h3>Almanya Pasaport Takip</h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: "0.75rem", lineHeight: 1.45 }}>
+              idata.com.tr Almanya başvuru takibi için kayıt oluşturun. Her kayda
+              <strong> 1–999</strong> arası benzersiz bir ID atanır. Eklentide
+              <strong> Almanya</strong> sekmesinden ID ile sorgulayabilirsiniz.
+            </p>
+            <form onSubmit={onAlmSubmit}>
+              <div className="field">
+                <label htmlFor="alm_ad">İsim Soyisim</label>
+                <input
+                  id="alm_ad"
+                  value={almAd}
+                  onChange={(e) => setAlmAd(e.target.value)}
+                  required
+                  placeholder="Ad Soyad"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="alm_pasaport">Pasaport No</label>
+                <input
+                  id="alm_pasaport"
+                  value={almPasaport}
+                  onChange={(e) => setAlmPasaport(e.target.value.toUpperCase())}
+                  required
+                  maxLength={20}
+                  placeholder="U12345678"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="alm_barkod">Barkod No</label>
+                <input
+                  id="alm_barkod"
+                  value={almBarkod}
+                  onChange={(e) => setAlmBarkod(e.target.value)}
+                  required
+                  maxLength={20}
+                  placeholder="Barkod"
+                />
+              </div>
+              <button type="submit" className="btn-submit" disabled={almSubmitting}>
+                {almBtnLabel}
+              </button>
+              {almShowCancel && (
+                <button type="button" className="btn-cancel" onClick={cancelAlmEdit}>
+                  Düzenlemeyi İptal Et
+                </button>
+              )}
+            </form>
+            {almShowIdBox && (
+              <div className="idBox">
+                <div className="label">Almanya ID</div>
+                <strong>{almNewId}</strong>
+                <div className="id-hint">Eklentiye otomatik gönderildi</div>
+              </div>
+            )}
+            {almStatusText && (
+              <div className={`status ${almStatusKind}`}>{almStatusText}</div>
+            )}
+
+            <div className="search-wrap" style={{ marginTop: "1rem" }}>
+              <input
+                type="text"
+                placeholder="İsim, pasaport veya barkod ile ara..."
+                value={almSearch}
+                onChange={(e) => setAlmSearch(e.target.value)}
+              />
+            </div>
+            <div className="list-container" style={{ maxHeight: 280 }}>
+              <ul className="list">
+                {displayAlmRows.length === 0 ? (
+                  <li className="empty-state">Kayıt bulunamadı</li>
+                ) : (
+                  displayAlmRows.map((m) => (
+                    <li key={m.id}>
+                      <div className="info">
+                        <div className="name">
+                          #{m.id} — {m.ad_soyad}{" "}
+                          {m.cikti && <span className="badge-cikti">ÇIKTI</span>}
+                        </div>
+                        <div className="meta">
+                          Pas {m.pasaport_no} · Brk {m.barkod_no}
+                        </div>
+                      </div>
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="act-btn act-edit"
+                          onClick={() => editAlmanya(m.id)}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          className="act-btn act-del"
+                          onClick={() => deleteAlmanya(m.id)}
                         >
                           Sil
                         </button>

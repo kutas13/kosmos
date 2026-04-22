@@ -5,6 +5,7 @@
 
 # Next.js
 .next/
+tsconfig.tsbuildinfo
 
 __pycache__/
 *.pyc

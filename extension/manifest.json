@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Kosmos başvuru doldurucu",
-  "version": "1.3.0",
-  "description": "Kosmos sihirbazı; müşteri bilgisini foxvize.info API ile ID'den çeker.",
+  "version": "1.4.0",
+  "description": "Kosmos sihirbazı + Almanya pasaport takip (idata.com.tr); foxvize.info API ile ID'den çeker.",
   "permissions": ["storage", "activeTab"],
   "background": {
     "service_worker": "background.js"
   },
   "host_permissions": [
     "https://basvuru.kosmosvize.com.tr/*",
+    "https://www.idata.com.tr/*",
+    "https://idata.com.tr/*",
     "http://127.0.0.1/*",
     "http://localhost/*",
     "https://foxvize.info/*",
@@ -23,6 +25,15 @@
     {
       "matches": ["https://basvuru.kosmosvize.com.tr/*"],
       "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.idata.com.tr/*",
+        "https://idata.com.tr/*"
+      ],
+      "js": ["idata-content.js"],
       "run_at": "document_idle",
       "all_frames": false
     },

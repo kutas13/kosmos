@@ -3,9 +3,28 @@ const btnWizard = document.getElementById("btnWizard");
 const btnStep1 = document.getElementById("btnStep1");
 const btnLoad = document.getElementById("btnLoad");
 
+const msgAlmEl = document.getElementById("msgAlm");
+const btnAlmLoad = document.getElementById("btnAlmLoad");
+const btnAlmSorgula = document.getElementById("btnAlmSorgula");
+const btnAlmFillOnly = document.getElementById("btnAlmFillOnly");
+const almWarn = document.getElementById("almWarn");
+
 document.getElementById("openOptions").addEventListener("click", (e) => {
   e.preventDefault();
   if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+});
+
+// ── TAB SWITCHER ──
+const tabButtons = document.querySelectorAll(".tab-btn");
+const tabPanes = document.querySelectorAll(".tab-pane");
+function activateTab(name) {
+  tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  tabPanes.forEach((p) => p.classList.toggle("active", p.id === `pane-${name}`));
+  chrome.storage.local.set({ activeTab: name });
+}
+tabButtons.forEach((b) => b.addEventListener("click", () => activateTab(b.dataset.tab)));
+chrome.storage.local.get(["activeTab"], (r) => {
+  if (r.activeTab === "almanya") activateTab("almanya");
 });
 
 async function getApiBase() {
@@ -13,6 +32,10 @@ async function getApiBase() {
   const b = String(r.apiBaseUrl || "").trim().replace(/\/$/, "");
   return b || (typeof FOXVIZE_API_BASE !== "undefined" ? FOXVIZE_API_BASE : "https://foxvize.info");
 }
+
+// ─────────────────────────────────────────────
+// YUNAN (Kosmos) — mevcut davranis
+// ─────────────────────────────────────────────
 
 function payloadFromForm() {
   return {
@@ -35,7 +58,6 @@ function loadDraft() {
     });
   });
 }
-
 loadDraft();
 
 btnLoad.addEventListener("click", async () => {
@@ -80,7 +102,7 @@ btnLoad.addEventListener("click", async () => {
   }
 });
 
-async function sendToTab(type, payload) {
+async function sendToKosmosTab(type, payload) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
     msgEl.className = "err";
@@ -106,7 +128,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
   chrome.storage.local.set({ lastFill: payload });
 
   try {
-    const res = await sendToTab("KOSMOS_FILL_WIZARD", payload);
+    const res = await sendToKosmosTab("KOSMOS_FILL_WIZARD", payload);
     if (!res) return;
     if (!res.ok) {
       msgEl.className = "err";
@@ -136,7 +158,7 @@ btnStep1.addEventListener("click", async () => {
   const payload = payloadFromForm();
   chrome.storage.local.set({ lastFill: payload });
   try {
-    const res = await sendToTab("KOSMOS_FILL", payload);
+    const res = await sendToKosmosTab("KOSMOS_FILL", payload);
     if (!res) return;
     if (!res.ok) {
       msgEl.className = "err";
@@ -161,4 +183,240 @@ btnStep1.addEventListener("click", async () => {
   } finally {
     btnStep1.disabled = false;
   }
+});
+
+// ─────────────────────────────────────────────
+// ALMANYA (idata.com.tr)
+// ─────────────────────────────────────────────
+
+const almIdInput = document.getElementById("alm_id");
+const almAd = document.getElementById("alm_ad_soyad");
+const almPas = document.getElementById("alm_pasaport_no");
+const almBrk = document.getElementById("alm_barkod_no");
+
+function setAlmMsg(text, kind) {
+  msgAlmEl.textContent = text || "";
+  msgAlmEl.className = kind || "";
+}
+
+function almPayloadFromForm() {
+  return {
+    ad_soyad: almAd.value.trim(),
+    pasaport_no: almPas.value.trim(),
+    barkod_no: almBrk.value.trim(),
+  };
+}
+
+function loadAlmDraft() {
+  chrome.storage.local.get(["lastAlmFill", "lastAlmanyaId"], (r) => {
+    if (r.lastAlmanyaId != null) almIdInput.value = String(r.lastAlmanyaId);
+    const d = r.lastAlmFill;
+    if (d) {
+      if (d.ad_soyad) almAd.value = d.ad_soyad;
+      if (d.pasaport_no) almPas.value = d.pasaport_no;
+      if (d.barkod_no) almBrk.value = d.barkod_no;
+    }
+    // Yazili ID'ye gore butonu baslangicta da dogrula
+    updateAlmIdState();
+  });
+}
+loadAlmDraft();
+
+/** Yazilan ID cikti olarak isaretliyse sorgula butonlarini kilitle. */
+async function isIdMarkedCikti(id) {
+  const idNum = Number(id);
+  if (!Number.isInteger(idNum) || idNum < 1 || idNum > 999) return false;
+
+  // Once lokal cache'e bak
+  const cached = await new Promise((resolve) => {
+    chrome.storage.local.get(["almanyaCiktiIds"], (res) => {
+      const arr = Array.isArray(res.almanyaCiktiIds) ? res.almanyaCiktiIds : [];
+      resolve(arr.map(Number));
+    });
+  });
+  if (cached.includes(idNum)) return true;
+
+  // Sonra sunucudan teyit
+  try {
+    const base = await getApiBase();
+    const r = await fetch(`${base}/api/almanya/${idNum}`);
+    if (!r.ok) return false;
+    const j = await r.json();
+    if (j && j.cikti === true) {
+      // lokal cache'i guncelle
+      chrome.storage.local.get(["almanyaCiktiIds"], (res) => {
+        const arr = Array.isArray(res.almanyaCiktiIds) ? res.almanyaCiktiIds : [];
+        if (!arr.includes(idNum)) {
+          arr.push(idNum);
+          chrome.storage.local.set({ almanyaCiktiIds: arr });
+        }
+      });
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+let almIdCheckTimer = null;
+async function updateAlmIdState() {
+  const idRaw = almIdInput.value.trim();
+  if (!idRaw) {
+    almWarn.classList.remove("on");
+    btnAlmSorgula.disabled = false;
+    btnAlmFillOnly.disabled = false;
+    return;
+  }
+  const blocked = await isIdMarkedCikti(idRaw);
+  almWarn.classList.toggle("on", blocked);
+  btnAlmSorgula.disabled = blocked;
+  btnAlmFillOnly.disabled = blocked;
+  btnAlmLoad.disabled = false; // yine de yukleyebilsin
+}
+
+almIdInput.addEventListener("input", () => {
+  if (almIdCheckTimer) clearTimeout(almIdCheckTimer);
+  almIdCheckTimer = setTimeout(updateAlmIdState, 250);
+});
+
+btnAlmLoad.addEventListener("click", async () => {
+  setAlmMsg("");
+  const idRaw = almIdInput.value.trim();
+  if (!idRaw) {
+    setAlmMsg("Almanya ID girin.", "err");
+    return;
+  }
+  const idNum = Number(idRaw);
+  if (!Number.isInteger(idNum) || idNum < 1 || idNum > 999) {
+    setAlmMsg("ID 1 ile 999 arasında olmalı.", "err");
+    return;
+  }
+  btnAlmLoad.disabled = true;
+  try {
+    const base = await getApiBase();
+    const r = await fetch(`${base}/api/almanya/${encodeURIComponent(idRaw)}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setAlmMsg(j.detail || `Sunucu hatası (${r.status}). API: ${base}`, "err");
+      return;
+    }
+    almAd.value = j.ad_soyad || "";
+    almPas.value = j.pasaport_no || "";
+    almBrk.value = j.barkod_no || "";
+    chrome.storage.local.set({
+      lastAlmFill: almPayloadFromForm(),
+      lastAlmanyaId: idNum,
+    });
+
+    if (j.cikti) {
+      // lokal cache'e ekle
+      chrome.storage.local.get(["almanyaCiktiIds"], (res) => {
+        const arr = Array.isArray(res.almanyaCiktiIds) ? res.almanyaCiktiIds : [];
+        if (!arr.includes(idNum)) {
+          arr.push(idNum);
+          chrome.storage.local.set({ almanyaCiktiIds: arr });
+        }
+      });
+      almWarn.classList.add("on");
+      btnAlmSorgula.disabled = true;
+      btnAlmFillOnly.disabled = true;
+      setAlmMsg(`#${j.id} yüklendi — pasaport zaten ÇIKTI olarak işaretli. Yeniden sorgulama engellendi.`, "err");
+    } else {
+      almWarn.classList.remove("on");
+      btnAlmSorgula.disabled = false;
+      btnAlmFillOnly.disabled = false;
+      setAlmMsg(`#${j.id} yüklendi.`, "ok");
+    }
+  } catch (e) {
+    setAlmMsg("Bağlanılamadı. API adresi doğru mu?\n" + String(e), "err");
+  } finally {
+    btnAlmLoad.disabled = false;
+  }
+});
+
+async function sendToIdataTab(type, payload) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    setAlmMsg("Sekme bulunamadı.", "err");
+    return null;
+  }
+  const url = tab.url || "";
+  if (!/idata\.com\.tr/i.test(url)) {
+    setAlmMsg("Önce idata.com.tr başvuru takip sayfasını bu sekmede açın.", "err");
+    return null;
+  }
+  try {
+    return await chrome.tabs.sendMessage(tab.id, { type, payload });
+  } catch (e) {
+    setAlmMsg("İçerik betiği yüklenemedi. Sayfayı yenileyin.\n" + String(e), "err");
+    return null;
+  }
+}
+
+async function runAlmFill(alsoClick) {
+  setAlmMsg("");
+  const idRaw = almIdInput.value.trim();
+  const idNum = Number(idRaw);
+  if (!Number.isInteger(idNum) || idNum < 1 || idNum > 999) {
+    setAlmMsg("Önce geçerli bir Almanya ID girin ve Yükle butonuna basın.", "err");
+    return;
+  }
+  if (await isIdMarkedCikti(idNum)) {
+    almWarn.classList.add("on");
+    btnAlmSorgula.disabled = true;
+    btnAlmFillOnly.disabled = true;
+    setAlmMsg(`#${idNum} pasaportu zaten ÇIKTI. Yeniden sorgulama engellendi.`, "err");
+    return;
+  }
+  const payload = { ...almPayloadFromForm(), id: idNum };
+  if (!payload.pasaport_no || !payload.barkod_no) {
+    setAlmMsg("Pasaport ve Barkod alanlari dolu olmalidir. Önce Yükle butonuna basın.", "err");
+    return;
+  }
+  chrome.storage.local.set({ lastAlmFill: almPayloadFromForm(), lastAlmanyaId: idNum });
+
+  btnAlmSorgula.disabled = true;
+  btnAlmFillOnly.disabled = true;
+  try {
+    const res = await sendToIdataTab("ALMANYA_FILL", payload);
+    if (!res) return;
+    if (!res.ok) {
+      const miss = [];
+      if (!res.foundPassport) miss.push("pasaport alanı");
+      if (!res.foundBarcode) miss.push("barkod alanı");
+      setAlmMsg(
+        "Sayfa alanları bulunamadı: " +
+          (miss.join(", ") || "(bilinmeyen)") +
+          ". idata.com.tr başvuru takip sayfasında olduğunuzdan emin olun.",
+        "err"
+      );
+      return;
+    }
+
+    if (alsoClick) {
+      setAlmMsg("Alanlar dolduruldu. CAPTCHA'yı girin, Sorgula otomatik çalışacak…", "ok");
+      // CAPTCHA icin kullaniciya zaman tanimaya gerek yok — kullanici kendisi basar.
+      // Yine de isteyen kullanici icin: ALMANYA_CLICK_SORGULA'yi sadece captcha girilmis gibi
+      // gozukuyorsa tetikleyin. Basitlik icin direkt tiklamiyoruz;
+      // "Sayfayi Doldur + Sorgula" butonu zaten sadece doldurur,
+      // CAPTCHA manuel oldugu icin tiklamayi kullaniciya birakmak daha guvenli.
+      // Kullanici her ihtimale karsi tiklamak isterse: asagidaki cagri yorum satiri.
+      // await sendToIdataTab("ALMANYA_CLICK_SORGULA", {});
+    } else {
+      setAlmMsg("Alanlar dolduruldu. CAPTCHA'yı girip Sorgula butonuna siz basın.", "ok");
+    }
+  } finally {
+    // Yeniden etkinlestirme cikti degilse
+    updateAlmIdState();
+  }
+}
+
+document.getElementById("fAlm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await runAlmFill(true);
+});
+
+btnAlmFillOnly.addEventListener("click", async () => {
+  await runAlmFill(false);
 });
