@@ -91,6 +91,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           target: "offscreen",
           type: "OCR_CAPTCHA_MULTI",
           images: msg.images,
+          segmentGroups: msg.segmentGroups,
           expectLen: msg.expectLen,
         });
         sendResponse(r || { ok: false, error: "Offscreen yanit vermedi" });

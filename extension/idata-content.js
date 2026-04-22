@@ -81,88 +81,257 @@
     );
   }
 
+  // ===== Captcha on-isleme + segmentasyon =====
+
   /**
-   * Captcha gorseli icin on-isleme: 3x olcek + grayscale + threshold + gurultu temizligi.
-   * Tesseract kucuk goruntulerde zorlaniyor; 3x upscaling OCR dogrulugunu onemli
-   * olcude artiriyor.
+   * On-islenmis canvas'i dondurur. 3x+ upscaling tesseract dogrulugunu ciddi
+   * artiriyor. Morphological closing secenegi ince cizgileri (7'nin ust cubugu
+   * gibi) kaybetmeyi onler.
    */
-  function preprocessCaptchaToDataUrl(imgEl, opts) {
-    try {
-      const o = Object.assign({ scale: 3, thresh: 120, denoise: true }, opts || {});
-      const w0 = imgEl.naturalWidth || imgEl.width;
-      const h0 = imgEl.naturalHeight || imgEl.height;
-      if (!w0 || !h0) return imgEl.src || null;
-      const w = Math.round(w0 * o.scale);
-      const h = Math.round(h0 * o.scale);
+  function preprocessCaptchaToCanvas(imgEl, opts) {
+    const o = Object.assign(
+      { scale: 3, thresh: 120, denoise: true, closing: false },
+      opts || {}
+    );
+    const w0 = imgEl.naturalWidth || imgEl.width;
+    const h0 = imgEl.naturalHeight || imgEl.height;
+    if (!w0 || !h0) return null;
+    const w = Math.round(w0 * o.scale);
+    const h = Math.round(h0 * o.scale);
 
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      // Beyaz zemin koy (kenarlari temiz olsun)
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(imgEl, 0, 0, w, h);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(imgEl, 0, 0, w, h);
 
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const d = imageData.data;
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const d = imageData.data;
 
-      // 1) Grayscale + threshold (koyu -> siyah, diger -> beyaz)
-      for (let i = 0; i < d.length; i += 4) {
-        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const v = lum < o.thresh ? 0 : 255;
-        d[i] = d[i + 1] = d[i + 2] = v;
-        d[i + 3] = 255;
-      }
+    // 1) Grayscale + threshold
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const v = lum < o.thresh ? 0 : 255;
+      d[i] = d[i + 1] = d[i + 2] = v;
+      d[i + 3] = 255;
+    }
 
-      // 2) Opening (erode-1): tek piksel/kucuk gurultu temizle
-      if (o.denoise) {
-        const getBlk = (x, y) => {
-          if (x < 0 || y < 0 || x >= w || y >= h) return 0;
-          return d[(y * w + x) * 4] === 0 ? 1 : 0;
-        };
-        const out = new Uint8ClampedArray(d.length);
-        out.set(d);
-        // Komsu siyah pikseli <2 olan izole siyahlari sil (erode)
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const idx = (y * w + x) * 4;
-            if (d[idx] !== 0) continue;
-            let n = 0;
-            n += getBlk(x - 1, y - 1) + getBlk(x, y - 1) + getBlk(x + 1, y - 1);
-            n += getBlk(x - 1, y) + getBlk(x + 1, y);
-            n += getBlk(x - 1, y + 1) + getBlk(x, y + 1) + getBlk(x + 1, y + 1);
-            if (n < 2) {
-              out[idx] = out[idx + 1] = out[idx + 2] = 255;
-            }
+    const getBlk = (buf, x, y) => {
+      if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+      return buf[(y * w + x) * 4] === 0 ? 1 : 0;
+    };
+
+    // 2) Opening (erode-1): tek piksel gurultu temizle
+    if (o.denoise) {
+      const out = new Uint8ClampedArray(d.length);
+      out.set(d);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          if (d[idx] !== 0) continue;
+          let n = 0;
+          n += getBlk(d, x - 1, y - 1) + getBlk(d, x, y - 1) + getBlk(d, x + 1, y - 1);
+          n += getBlk(d, x - 1, y) + getBlk(d, x + 1, y);
+          n += getBlk(d, x - 1, y + 1) + getBlk(d, x, y + 1) + getBlk(d, x + 1, y + 1);
+          if (n < 2) {
+            out[idx] = out[idx + 1] = out[idx + 2] = 255;
           }
         }
-        for (let i = 0; i < d.length; i++) d[i] = out[i];
       }
+      for (let i = 0; i < d.length; i++) d[i] = out[i];
+    }
 
-      ctx.putImageData(imageData, 0, 0);
-      return canvas.toDataURL("image/png");
+    // 3) Closing: dilate + erode (kopuk cizgileri birlestir, 7'nin ust bariny korur)
+    if (o.closing) {
+      // Dilate: her beyaz pikselin komsusunda siyah varsa siyah yap
+      const dil = new Uint8ClampedArray(d.length);
+      dil.set(d);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          if (d[idx] === 0) continue;
+          let anyBlk = 0;
+          anyBlk |= getBlk(d, x - 1, y) | getBlk(d, x + 1, y);
+          anyBlk |= getBlk(d, x, y - 1) | getBlk(d, x, y + 1);
+          if (anyBlk) {
+            dil[idx] = dil[idx + 1] = dil[idx + 2] = 0;
+          }
+        }
+      }
+      // Erode: dilate sonrasi yuzeyi tekrar daralt (kopuklar cozuldu)
+      const ero = new Uint8ClampedArray(dil.length);
+      ero.set(dil);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          if (dil[idx] !== 0) continue;
+          const allBlk =
+            getBlk(dil, x - 1, y) &&
+            getBlk(dil, x + 1, y) &&
+            getBlk(dil, x, y - 1) &&
+            getBlk(dil, x, y + 1);
+          if (!allBlk) {
+            ero[idx] = ero[idx + 1] = ero[idx + 2] = 255;
+          }
+        }
+      }
+      for (let i = 0; i < d.length; i++) d[i] = ero[i];
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  }
+
+  function canvasToDataUrl(canvas) {
+    try {
+      return canvas ? canvas.toDataURL("image/png") : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function preprocessCaptchaToDataUrl(imgEl, opts) {
+    try {
+      const c = preprocessCaptchaToCanvas(imgEl, opts);
+      return canvasToDataUrl(c) || (imgEl && imgEl.src) || null;
     } catch (e) {
       console.warn("[idata] preprocess hata:", e);
       try { return imgEl.src || null; } catch { return null; }
     }
   }
 
-  /** Cesitli threshold ve olcek varyantlarinda bir dizi ureten yardimci. */
+  /**
+   * Canvas icindeki rakamlari ayirir.
+   * Dikey projeksiyon: her sutunda siyah piksel sayisi; bosluklara gore
+   * 4 (idealde) bounding box cikarir. Bos veya yanlis sayida segment
+   * bulursa bos dizi doner.
+   */
+  function segmentDigitsFromCanvas(canvas, expectN = 4) {
+    if (!canvas) return [];
+    const w = canvas.width;
+    const h = canvas.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const data = ctx.getImageData(0, 0, w, h).data;
+
+    const col = new Array(w).fill(0);
+    for (let x = 0; x < w; x++) {
+      let c = 0;
+      for (let y = 0; y < h; y++) {
+        if (data[(y * w + x) * 4] === 0) c++;
+      }
+      col[x] = c;
+    }
+    // Bir sutun "dolu" sayilsin: kendisinde >=minBlk piksel olsun
+    const minBlk = Math.max(2, Math.floor(h * 0.05));
+    const runs = [];
+    let s = -1;
+    for (let x = 0; x < w; x++) {
+      const filled = col[x] >= minBlk;
+      if (filled && s === -1) s = x;
+      else if (!filled && s !== -1) {
+        if (x - s >= 4) runs.push({ x0: s, x1: x });
+        s = -1;
+      }
+    }
+    if (s !== -1) runs.push({ x0: s, x1: w });
+
+    // Cok kucuk parcalari ele: genislik < genel median * 0.2
+    if (!runs.length) return [];
+    const widths = runs.map((r) => r.x1 - r.x0).sort((a, b) => a - b);
+    const median = widths[Math.floor(widths.length / 2)];
+    let filtered = runs.filter((r) => r.x1 - r.x0 >= Math.max(4, median * 0.2));
+
+    // Eger hala beklediğimizden fazla segment varsa ard arda olan kucukleri birlestir
+    if (filtered.length > expectN) {
+      // Cok kisa gap varsa birlestir
+      const merged = [filtered[0]];
+      for (let i = 1; i < filtered.length; i++) {
+        const prev = merged[merged.length - 1];
+        const gap = filtered[i].x0 - prev.x1;
+        if (gap <= Math.max(3, median * 0.12)) {
+          prev.x1 = filtered[i].x1;
+        } else {
+          merged.push({ ...filtered[i] });
+        }
+      }
+      filtered = merged;
+    }
+
+    // Her segment icin dikey bounding bul (beyaz ust/alt kirp)
+    const boxes = filtered.map((r) => {
+      let top = h;
+      let bot = 0;
+      for (let x = r.x0; x < r.x1; x++) {
+        for (let y = 0; y < h; y++) {
+          if (data[(y * w + x) * 4] === 0) {
+            if (y < top) top = y;
+            if (y > bot) bot = y;
+          }
+        }
+      }
+      if (top > bot) {
+        top = 0;
+        bot = h - 1;
+      }
+      return { x: r.x0, y: top, w: r.x1 - r.x0, h: bot - top + 1 };
+    });
+
+    return boxes;
+  }
+
+  /** Bir rakam kutusunu normalize edilmis dataUrl'e cevir. */
+  function cropDigitToDataUrl(srcCanvas, box, targetH = 64, pad = 12) {
+    if (!box || !srcCanvas) return null;
+    const scale = targetH / box.h;
+    const cw = Math.max(10, Math.round(box.w * scale) + pad * 2);
+    const ch = targetH + pad * 2;
+    const out = document.createElement("canvas");
+    out.width = cw;
+    out.height = ch;
+    const ctx = out.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(
+      srcCanvas,
+      box.x, box.y, box.w, box.h,
+      pad, pad, Math.round(box.w * scale), targetH
+    );
+    try { return out.toDataURL("image/png"); } catch { return null; }
+  }
+
+  /** On-isleme varyantlari + her biri icin segment listesi. */
   function buildCaptchaVariants(imgEl) {
     const variants = [];
-    // Olcek 3x, orta esik - en iyi denge
-    const v1 = preprocessCaptchaToDataUrl(imgEl, { scale: 3, thresh: 120, denoise: true });
-    if (v1) variants.push(v1);
-    // Olcek 3x, kaliplar ince ise daha dusuk esik cizgileri yakalar
-    const v2 = preprocessCaptchaToDataUrl(imgEl, { scale: 3, thresh: 90, denoise: true });
-    if (v2 && v2 !== v1) variants.push(v2);
-    // Olcek 4x, daha yumusak (yuksek cozunurluk, basit threshold)
-    const v3 = preprocessCaptchaToDataUrl(imgEl, { scale: 4, thresh: 130, denoise: false });
-    if (v3) variants.push(v3);
-    return variants;
+    const groups = []; // { segments: [dataUrl x4], label }
+
+    const specs = [
+      { scale: 3, thresh: 120, denoise: true, closing: true, label: "3x/120/closing" },
+      { scale: 3, thresh: 110, denoise: true, closing: true, label: "3x/110/closing" },
+      { scale: 3, thresh: 130, denoise: true, closing: false, label: "3x/130" },
+      { scale: 4, thresh: 120, denoise: true, closing: true, label: "4x/120/closing" },
+    ];
+
+    for (const spec of specs) {
+      const canvas = preprocessCaptchaToCanvas(imgEl, spec);
+      if (!canvas) continue;
+      const whole = canvasToDataUrl(canvas);
+      if (whole) variants.push(whole);
+      // Segment 4 basamaga
+      const boxes = segmentDigitsFromCanvas(canvas, 4);
+      if (boxes.length === 4) {
+        const segs = boxes.map((b) => cropDigitToDataUrl(canvas, b)).filter(Boolean);
+        if (segs.length === 4) {
+          groups.push({ segments: segs, label: spec.label });
+        }
+      }
+    }
+    return { variants, groups };
   }
 
   // ====== OCR via BACKGROUND + OFFSCREEN ======
@@ -192,20 +361,23 @@
         setTimeout(done, 1500);
       });
     }
-    // Birden fazla on-isleme varyanti uret; offscreen hepsini ve tum PSM'leri
-    // deneyip en yuksek guvenli 4-haneli sonucu dondurur.
-    const variants = buildCaptchaVariants(img);
-    if (!variants.length) {
-      const fallback = img.src;
-      if (!fallback) return { ok: false, error: "On-isleme basarisiz" };
-      variants.push(fallback);
+    // Whole-image varyantlari + rakam segment gruplari uret.
+    // Offscreen hepsini dener ve en iyi skorlu 4-haneli sonucu dondurur.
+    const { variants, groups } = buildCaptchaVariants(img);
+    if (!variants.length && !groups.length) {
+      return { ok: false, error: "On-isleme basarisiz" };
     }
 
     try {
       const res = await new Promise((resolve) => {
         try {
           chrome.runtime.sendMessage(
-            { type: "OCR_CAPTCHA_MULTI", images: variants, expectLen: 4 },
+            {
+              type: "OCR_CAPTCHA_MULTI",
+              images: variants,
+              segmentGroups: groups, // her grup: { segments: [dataUrl x4], label }
+              expectLen: 4,
+            },
             (r) => {
               if (chrome.runtime.lastError) {
                 resolve({ ok: false, error: chrome.runtime.lastError.message });
