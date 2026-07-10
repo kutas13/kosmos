@@ -1,6 +1,8 @@
 export const MUSTERI_ID_MIN = 1;
 export const MUSTERI_ID_MAX = 999;
 
+export const DEFAULT_EPOSTA = "vize@foxturizm.com";
+
 export type Musteri = {
   id: number;
   ad: string;
@@ -8,6 +10,7 @@ export type Musteri = {
   tc: string;
   dogum_tarihi: string;
   telefon: string;
+  eposta: string;
 };
 
 export function parseBody(body: unknown): Omit<Musteri, "id"> | null {
@@ -18,10 +21,17 @@ export function parseBody(body: unknown): Omit<Musteri, "id"> | null {
   const tc = String(o.tc ?? "").trim();
   const dogum_tarihi = String(o.dogum_tarihi ?? "").trim();
   const telefon = String(o.telefon ?? "").trim();
+  // eposta bos gelirse default'a duser. Cok kaba bir email kontrolu yapiyoruz;
+  // asil dogrulama input pattern + kullanicinin insaniyla.
+  const epostaRaw = String(o.eposta ?? "").trim();
+  const eposta = epostaRaw || DEFAULT_EPOSTA;
   if (!ad || !soyad || tc.length !== 11 || !/^\d{11}$/.test(tc) || !dogum_tarihi) {
     return null;
   }
-  return { ad, soyad, tc, dogum_tarihi, telefon };
+  if (eposta.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(eposta)) {
+    return null;
+  }
+  return { ad, soyad, tc, dogum_tarihi, telefon, eposta };
 }
 
 export function isValidMusteriId(id: number): boolean {

@@ -19,6 +19,7 @@ window.addEventListener("message", (e) => {
         tc: d.tc || "",
         dogum_tarihi: d.dogum_tarihi || "",
         telefon: d.telefon || "",
+        eposta: d.eposta || "vize@foxturizm.com",
       },
       activeTab: "yunan",
     });

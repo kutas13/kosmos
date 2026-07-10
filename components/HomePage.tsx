@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+const DEFAULT_EPOSTA = "vize@foxturizm.com";
+
 type Musteri = {
   id: number;
   ad: string;
@@ -9,6 +11,7 @@ type Musteri = {
   tc: string;
   dogum_tarihi: string;
   telefon: string;
+  eposta: string;
 };
 
 type AlmanyaDurum = "beklemede" | "islemde" | "cikmis" | "hata";
@@ -63,6 +66,7 @@ export default function HomePage() {
   const [tc, setTc] = useState("");
   const [dogum, setDogum] = useState("");
   const [telefon, setTelefon] = useState("");
+  const [eposta, setEposta] = useState(DEFAULT_EPOSTA);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Musteri[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -149,6 +153,7 @@ export default function HomePage() {
     setTc("");
     setDogum("");
     setTelefon("");
+    setEposta(DEFAULT_EPOSTA);
     setEditingId(null);
     setBtnLabel("Kaydet ve ID Al");
     setShowCancel(false);
@@ -168,6 +173,7 @@ export default function HomePage() {
     setTc(m.tc);
     setDogum(m.dogum_tarihi);
     setTelefon(m.telefon || "");
+    setEposta(m.eposta || DEFAULT_EPOSTA);
     setEditingId(id);
     setBtnLabel(`#${id} Güncelle`);
     setShowCancel(true);
@@ -197,6 +203,7 @@ export default function HomePage() {
       tc: tc.trim(),
       dogum_tarihi: dogum.trim(),
       telefon: telefon.trim(),
+      eposta: eposta.trim() || DEFAULT_EPOSTA,
     };
     try {
       const isEdit = editingId !== null;
@@ -476,6 +483,23 @@ export default function HomePage() {
                   onChange={(e) => setTelefon(e.target.value)}
                   autoComplete="tel"
                   placeholder="05xx..."
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="eposta">
+                  E-posta{" "}
+                  <span style={{ fontWeight: 400, color: "var(--muted)", fontSize: "0.75rem" }}>
+                    (varsayılan: {DEFAULT_EPOSTA} — silip değiştirebilirsiniz)
+                  </span>
+                </label>
+                <input
+                  id="eposta"
+                  type="email"
+                  value={eposta}
+                  onChange={(e) => setEposta(e.target.value)}
+                  autoComplete="email"
+                  placeholder={DEFAULT_EPOSTA}
+                  maxLength={254}
                 />
               </div>
               <button type="submit" className="btn-submit" disabled={submitting}>

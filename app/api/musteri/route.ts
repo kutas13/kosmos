@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       p_tc: fields.tc,
       p_dogum_tarihi: fields.dogum_tarihi,
       p_telefon: fields.telefon,
+      p_eposta: fields.eposta,
     });
 
     if (error) {
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         return corsJson(
           {
             detail:
-              "Sunucu henüz güncellenmedi. Supabase SQL Editor'da supabase/migrations/002_random_id_1_999.sql dosyasını çalıştırın.",
+              "Sunucu henüz güncellenmedi. Supabase SQL Editor'da supabase/migrations/003_musteri_eposta.sql (ve öncekiler) dosyasını çalıştırın.",
           },
           503
         );

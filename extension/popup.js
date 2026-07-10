@@ -37,13 +37,17 @@ async function getApiBase() {
 // YUNAN (Kosmos) — mevcut davranis
 // ─────────────────────────────────────────────
 
+const DEFAULT_EPOSTA = "vize@foxturizm.com";
+
 function payloadFromForm() {
+  const epostaVal = (document.getElementById("eposta").value || "").trim();
   return {
     ad: document.getElementById("ad").value.trim(),
     soyad: document.getElementById("soyad").value.trim(),
     tc: document.getElementById("tc").value.trim(),
     dogum_tarihi: document.getElementById("dogum_tarihi").value.trim(),
     telefon: document.getElementById("telefon").value.trim(),
+    eposta: epostaVal || DEFAULT_EPOSTA,
   };
 }
 
@@ -51,6 +55,9 @@ function loadDraft() {
   chrome.storage.local.get(["lastFill", "lastMusteriId"], (r) => {
     if (r.lastMusteriId != null) document.getElementById("musteri_id").value = String(r.lastMusteriId);
     const d = r.lastFill;
+    // eposta default'u her acilista koy (kullanici degistirebilir)
+    const epostaEl = document.getElementById("eposta");
+    if (epostaEl && !epostaEl.value) epostaEl.value = (d && d.eposta) || DEFAULT_EPOSTA;
     if (!d) return;
     ["ad", "soyad", "tc", "dogum_tarihi", "telefon"].forEach((k) => {
       const el = document.getElementById(k);
@@ -90,6 +97,7 @@ btnLoad.addEventListener("click", async () => {
     document.getElementById("tc").value = j.tc || "";
     document.getElementById("dogum_tarihi").value = j.dogum_tarihi || "";
     document.getElementById("telefon").value = j.telefon || "";
+    document.getElementById("eposta").value = j.eposta || DEFAULT_EPOSTA;
     chrome.storage.local.set({ lastFill: payloadFromForm(), lastMusteriId: Number(idRaw) });
     msgEl.textContent = `Müşteri #${j.id} yüklendi.`;
   } catch (e) {

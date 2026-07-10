@@ -541,10 +541,14 @@ function fillStep1Extra(payload, storedWizardStep1Extra, requirePhone) {
     results.push({ step: "1extra", name: "street", ok: true });
   }
 
+  // E-posta: musteri kaydindan gelen payload.eposta oncelikli.
+  // Bos gelirse options'daki eMail, o da yoksa "vize@foxturizm.com" default'u.
+  const payloadEposta = (payload && String(payload.eposta || "").trim()) || "";
+  const emailToFill = payloadEposta || String(merged.eMail || "").trim() || "vize@foxturizm.com";
   const emailEl = findByName("eMail");
   if (!emailEl) results.push({ step: "1extra", name: "eMail", ok: false });
   else {
-    setInputValue(emailEl, String(merged.eMail ?? ""));
+    setInputValue(emailEl, emailToFill);
     commitField(emailEl);
     results.push({ step: "1extra", name: "eMail", ok: true });
   }
