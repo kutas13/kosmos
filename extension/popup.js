@@ -33,6 +33,22 @@ async function getApiBase() {
   return b || (typeof FOXVIZE_API_BASE !== "undefined" ? FOXVIZE_API_BASE : "https://foxvize.info");
 }
 
+async function getApiKey() {
+  const r = await chrome.storage.local.get(["apiKey"]);
+  return (
+    String(r.apiKey || "").trim() ||
+    (typeof FOXVIZE_API_KEY !== "undefined" ? FOXVIZE_API_KEY : "")
+  );
+}
+
+/** fetch() helper — foxvize.info API'sine giderken otomatik x-api-key ekler. */
+async function apiFetch(input, init) {
+  const key = await getApiKey();
+  const headers = new Headers((init && init.headers) || {});
+  if (key) headers.set("x-api-key", key);
+  return fetch(input, { ...(init || {}), headers });
+}
+
 // ─────────────────────────────────────────────
 // YUNAN (Kosmos) — mevcut davranis
 // ─────────────────────────────────────────────
@@ -85,7 +101,7 @@ btnLoad.addEventListener("click", async () => {
   btnLoad.disabled = true;
   try {
     const base = await getApiBase();
-    const r = await fetch(`${base}/api/musteri/${encodeURIComponent(idRaw)}`);
+    const r = await apiFetch(`${base}/api/musteri/${encodeURIComponent(idRaw)}`);
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       msgEl.className = "err";
@@ -249,7 +265,7 @@ async function isIdMarkedCikti(id) {
   // Sonra sunucudan teyit
   try {
     const base = await getApiBase();
-    const r = await fetch(`${base}/api/almanya/${idNum}`);
+    const r = await apiFetch(`${base}/api/almanya/${idNum}`);
     if (!r.ok) return false;
     const j = await r.json();
     if (j && j.cikti === true) {
@@ -305,7 +321,7 @@ btnAlmLoad.addEventListener("click", async () => {
   btnAlmLoad.disabled = true;
   try {
     const base = await getApiBase();
-    const r = await fetch(`${base}/api/almanya/${encodeURIComponent(idRaw)}`);
+    const r = await apiFetch(`${base}/api/almanya/${encodeURIComponent(idRaw)}`);
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       setAlmMsg(j.detail || `Sunucu hatası (${r.status}). API: ${base}`, "err");

@@ -570,13 +570,25 @@
     return b || "https://foxvize.info";
   }
 
+  async function getApiKey() {
+    const r = await new Promise((resolve) => {
+      try { chrome.storage.local.get(["apiKey"], resolve); }
+      catch { resolve({}); }
+    });
+    return String(r.apiKey || "").trim() || "foxvize-api-2026-internal-do-not-share";
+  }
+
   async function sendDurumToServer(id, durum, mesaj) {
     if (!id) return;
     try {
       const base = await getApiBase();
+      const key = await getApiKey();
       await fetch(`${base}/api/almanya/${encodeURIComponent(id)}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": key,
+        },
         body: JSON.stringify({ durum, son_mesaj: mesaj || null }),
       });
       if (durum === "cikmis") {

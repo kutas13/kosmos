@@ -4,23 +4,26 @@
  * - CAPTCHA OCR istekleri icin offscreen document olusturur ve mesaj relay'i yapar.
  */
 const FOXVIZE_API_BASE = "https://foxvize.info";
+const FOXVIZE_API_KEY = "foxvize-api-2026-internal-do-not-share";
 const OFFSCREEN_URL = "offscreen.html";
 
 chrome.runtime.onInstalled.addListener((details) => {
-  chrome.storage.local.get(["apiBaseUrl"], (r) => {
+  chrome.storage.local.get(["apiBaseUrl", "apiKey"], (r) => {
     const v = String(r.apiBaseUrl || "").trim();
     const isLocalOrEmpty =
       !v ||
       v.includes("127.0.0.1") ||
       v.includes("localhost") ||
       /:(3000|8765)\b/.test(v);
+    const patch = {};
     if (details.reason === "install") {
-      if (!v || isLocalOrEmpty) {
-        chrome.storage.local.set({ apiBaseUrl: FOXVIZE_API_BASE });
-      }
-    } else if (details.reason === "update" && isLocalOrEmpty) {
-      chrome.storage.local.set({ apiBaseUrl: FOXVIZE_API_BASE });
+      if (!v || isLocalOrEmpty) patch.apiBaseUrl = FOXVIZE_API_BASE;
+      if (!r.apiKey) patch.apiKey = FOXVIZE_API_KEY;
+    } else if (details.reason === "update") {
+      if (isLocalOrEmpty) patch.apiBaseUrl = FOXVIZE_API_BASE;
+      if (!r.apiKey) patch.apiKey = FOXVIZE_API_KEY;
     }
+    if (Object.keys(patch).length) chrome.storage.local.set(patch);
   });
 
   // Guncelleme / kurulum anlaminda offscreen'i onceden isit
